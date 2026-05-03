@@ -423,12 +423,12 @@ function renderGame(app) {
           : `
             ${renderTurnCard(currentPlayer)}
             ${renderScoreDisplay()}
-            ${renderTurnOrderViz()}
+            ${renderNumpad()}
             ${renderQuickControls()}
             ${renderLastTileButton()}
             ${renderEndGameButton()}
-            ${renderNumpad()}
             ${renderScoreboardPanel()}
+            ${renderTurnOrderViz()}
           `
       }
     </section>

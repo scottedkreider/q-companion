@@ -445,8 +445,8 @@ input:focus-visible {
 
 .turn-card {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px;
   border-radius: var(--radius);
   background: var(--primary);
   color: #fffaf1;
@@ -459,21 +459,25 @@ input:focus-visible {
 
 .turn-name {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.55rem;
   line-height: 1.05;
   letter-spacing: 0;
 }
 
 .turn-meta {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   font-weight: 750;
 }
 
+.turn-meta span:last-child {
+  display: none;
+}
+
 .table-map {
   position: relative;
-  min-height: 176px;
+  min-height: 156px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -641,8 +645,8 @@ input:focus-visible {
 
 .display {
   display: grid;
-  gap: 8px;
-  padding: 14px;
+  gap: 6px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #171b18;
@@ -657,7 +661,7 @@ input:focus-visible {
 }
 
 .display-value {
-  font-size: 4rem;
+  font-size: 3.25rem;
   line-height: 0.95;
   font-weight: 900;
   text-align: right;
@@ -679,8 +683,8 @@ input:focus-visible {
 }
 
 .numpad button {
-  min-height: 66px;
-  font-size: 1.35rem;
+  min-height: 58px;
+  font-size: 1.2rem;
 }
 
 .numpad .enter {
@@ -1069,8 +1073,35 @@ input:focus-visible {
     font-size: 2.25rem;
   }
 
+  .wide-mode .turn-card {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .wide-mode .turn-meta {
+    justify-content: space-between;
+  }
+
+  .wide-mode .turn-meta span:last-child {
+    display: inline;
+  }
+
   .wide-mode .display-value {
     font-size: 5rem;
+  }
+
+  .wide-mode .display {
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .wide-mode .numpad button {
+    min-height: 66px;
+    font-size: 1.35rem;
+  }
+
+  .wide-mode .table-map {
+    min-height: 176px;
   }
 
   .wide-mode .quick-grid {
