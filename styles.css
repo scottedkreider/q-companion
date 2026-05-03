@@ -275,6 +275,11 @@ input:focus-visible {
   box-shadow: inset 0 0 0 1px rgba(183, 92, 69, 0.45);
 }
 
+.delete-history-control {
+  color: var(--danger-strong);
+  box-shadow: inset 0 0 0 1px rgba(183, 92, 69, 0.45);
+}
+
 .end-game-confirm {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -989,6 +994,11 @@ input:focus-visible {
   background: rgba(255, 253, 248, 0.94);
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
+}
+
+.photo-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
 }
 
 .empty-history {

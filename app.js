@@ -185,6 +185,10 @@ const GAME_ARCHIVE_ADAPTER = {
   find(id) {
     return this.load().find((game) => game.id === id) || null;
   },
+  delete(id) {
+    const nextGames = this.load().filter((game) => game.id !== id);
+    this.save(nextGames);
+  },
 };
 
 const initialState = () =>
@@ -685,7 +689,7 @@ function renderHistory(app) {
   bind("[data-action='back']", "click", () => setState({ screen: getHistoryBackScreen(), returnScreen: "start" }));
   document.querySelectorAll("[data-history-id]").forEach((button) => {
     button.addEventListener("click", () => {
-      setState({ screen: "historyDetail", historySelectedId: button.dataset.historyId, returnScreen: "history" });
+      setState({ screen: "historyDetail", historySelectedId: button.dataset.historyId, deleteHistoryArmedId: null, returnScreen: "history" });
     });
   });
 }
@@ -731,6 +735,7 @@ function renderHistoryDetail(app) {
           <strong>Photo</strong>
           <p class="muted">No photo attached. Upload is reserved for a later storage pass.</p>
         </div>
+        ${renderHistoryDeleteControls(game)}
       </div>
       <div class="panel stack">
         <h2 class="section-title">Final Scores</h2>
@@ -740,15 +745,41 @@ function renderHistoryDetail(app) {
         <h2 class="section-title">Score Sheet</h2>
         ${renderArchivedScoreSheet(game)}
       </div>
-      <div class="sticky-actions" aria-label="Saved game navigation">
-        <button data-action="history">History</button>
-        <button class="primary" data-action="active">Active Game</button>
+      <div class="sticky-actions photo-actions" aria-label="Saved game photo">
+        <button class="ghost" disabled>Upload Photo Later</button>
+        <button class="primary" disabled>Photo Placeholder</button>
       </div>
     </section>
   `;
 
   bind("[data-action='history']", "click", () => setState({ screen: "history", historySelectedId: null }));
-  bind("[data-action='active']", "click", () => setState({ screen: nextStartScreen(), historySelectedId: null }));
+  bind("[data-action='arm-delete-history']", "click", () => setState({ deleteHistoryArmedId: game.id }));
+  bind("[data-action='cancel-delete-history']", "click", () => setState({ deleteHistoryArmedId: null }));
+  bind("[data-action='confirm-delete-history']", "click", () => deleteHistoryGame(game.id));
+}
+
+function renderHistoryDeleteControls(game) {
+  if (state.deleteHistoryArmedId !== game.id) {
+    return `<button class="ghost delete-history-control" data-action="arm-delete-history">Delete Saved Game</button>`;
+  }
+
+  return `
+    <div class="end-game-confirm">
+      <button class="ghost" data-action="cancel-delete-history">Keep Saved Game</button>
+      <button class="danger" data-action="confirm-delete-history">Delete</button>
+    </div>
+  `;
+}
+
+function deleteHistoryGame(gameId) {
+  GAME_ARCHIVE_ADAPTER.delete(gameId);
+  setState({
+    screen: "history",
+    historySelectedId: null,
+    deleteHistoryArmedId: null,
+    recordedGameId: state.recordedGameId === gameId ? null : state.recordedGameId,
+    returnScreen: "history",
+  });
 }
 
 function renderScoreSheet() {

@@ -25,6 +25,7 @@
       endGameArmed: false,
       recordedGameId: null,
       historySelectedId: null,
+      deleteHistoryArmedId: null,
       returnScreen: "start",
       layoutMode: options.layoutMode || "default",
       saveMode: options.saveMode || "sessionless",
