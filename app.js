@@ -285,15 +285,11 @@ function renderStart(app) {
 function renderSaveModePicker() {
   return `
     <div class="save-mode">
-      <span>Game saving</span>
-      <label>
-        <input type="radio" name="save-mode" value="sessionless" data-save-mode ${state.saveMode === "sessionless" ? "checked" : ""}>
-        Sessionless
-      </label>
-      <label>
-        <input type="radio" name="save-mode" value="saveAll" data-save-mode ${state.saveMode === "saveAll" ? "checked" : ""}>
-        Save All Games
-      </label>
+      <label for="save-mode">Game Saving</label>
+      <select id="save-mode" data-save-mode>
+        <option value="sessionless" ${state.saveMode === "sessionless" ? "selected" : ""}>Sessionless</option>
+        <option value="saveAll" ${state.saveMode === "saveAll" ? "selected" : ""}>Save All Games</option>
+      </select>
     </div>
   `;
 }
@@ -678,7 +674,7 @@ function renderHistory(app) {
     </section>
   `;
 
-  bind("[data-action='back']", "click", () => setState({ screen: state.returnScreen || "start" }));
+  bind("[data-action='back']", "click", () => setState({ screen: getHistoryBackScreen(), returnScreen: "start" }));
   document.querySelectorAll("[data-history-id]").forEach((button) => {
     button.addEventListener("click", () => {
       setState({ screen: "historyDetail", historySelectedId: button.dataset.historyId, returnScreen: "history" });
@@ -992,6 +988,12 @@ function setSaveMode(saveMode) {
   const nextSaveMode = saveMode === "saveAll" ? "saveAll" : "sessionless";
   SAVE_MODE_ADAPTER.save(nextSaveMode);
   setState({ saveMode: nextSaveMode });
+}
+
+function getHistoryBackScreen() {
+  if (state.returnScreen === "results" && state.gameOver) return "results";
+  if (state.returnScreen === "game" && state.gameStartedAt && !state.gameOver) return "game";
+  return "start";
 }
 
 function openRecordGame(returnScreen) {
