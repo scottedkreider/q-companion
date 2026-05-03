@@ -18,7 +18,7 @@ Tests cover the pure scoring, ranking, round, winner, and archive snapshot logic
 
 ## Branding
 
-Branding is centralized in the `BRAND` object at the top of `app.js`. Update that object to change the app name, short mark, subtitle, storage key, CSV filename prefix, scoring button labels, and reserved disclaimer copy.
+Branding is centralized in the `BRAND` object at the top of `app.js`. Update that object to change the app name, short mark, subtitle, storage keys, scoring button labels, and reserved disclaimer copy.
 
 The current prototype name is `Q Companion`. A future public release can swap branding without changing each screen by hand.
 
@@ -60,7 +60,6 @@ The start screen offers two save modes:
 - Final score sheet in player-column format
 - Score sheet
 - Final rankings
-- CSV export
 - New game reset
 
 ## Scoring Flow

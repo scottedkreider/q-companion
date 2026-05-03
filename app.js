@@ -4,7 +4,6 @@ const BRAND = {
   appName: "Q Companion",
   shortName: "Q!",
   subtitle: "Fast scorekeeping for live tabletop tile games.",
-  csvPrefix: "q_companion_scores",
   storageKey: "q-companion.currentGame.v1",
   playerNamesKey: "q-companion.recentPlayers.v1",
   layoutPreferenceKey: "q-companion.layoutPreference.v1",
@@ -604,25 +603,21 @@ function renderResults(app) {
         ${renderSavedNotes(savedGame)}
         <div class="button-row">
           <button class="ghost" data-action="record-game" data-return-screen="results">${state.recordedGameId ? "Edit Saved Notes" : "Save Game"}</button>
-          <button class="primary" data-action="csv">Save CSV</button>
           <button class="ghost" data-action="history">History</button>
           <button class="ghost" data-action="new">Reset Game</button>
         </div>
       </div>
 
       <div class="sticky-actions" aria-label="Results navigation">
-        <button data-action="sheet">Score Sheet</button>
-        <button class="primary" data-action="scores">Final Scores</button>
+        <button data-action="history">History</button>
+        <button class="primary" data-action="new">Reset Game</button>
       </div>
     </section>
   `;
 
-  bind("[data-action='csv']", "click", downloadCsv);
   bind("[data-action='record-game']", "click", (event) => openRecordGame(event.currentTarget.dataset.returnScreen || "results"));
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "results" }));
   bind("[data-action='new']", "click", startFreshGame);
-  bind("[data-action='sheet']", "click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
-  bind("[data-action='scores']", "click", scrollToFinalScores);
   setTimeout(scrollToFinalScores, 0);
 }
 
@@ -1223,67 +1218,6 @@ function formatBonuses(turn) {
   if (turn.lineBonus) bonuses.push("+6 line");
   if (turn.lastTileBonus) bonuses.push("+6 last");
   return bonuses.length ? bonuses.join(", ") : `base ${turn.baseScore}`;
-}
-
-function downloadCsv() {
-  const csvContent = buildCsv();
-  const blob = new Blob([csvContent], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${BRAND.csvPrefix}_${formatDateForFile(new Date())}.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function buildCsv() {
-  const gameDate = state.gameStartedAt || new Date().toISOString();
-  const rows = [
-    [
-      "Game Date",
-      "Turn Number",
-      "Round Number",
-      "Player Name",
-      "Base Score",
-      "Line Bonus",
-      "Last Tile Bonus",
-      "Turn Total",
-      "Running Total",
-      "Is Last Tile",
-      "Final Scores",
-    ],
-    ...state.turnHistory.map((turn) => [
-      gameDate.slice(0, 10),
-      turn.turnNumber,
-      turn.roundNumber,
-      turn.playerName,
-      turn.baseScore,
-      turn.lineBonus || 0,
-      turn.lastTileBonus,
-      turn.turnTotal,
-      turn.runningTotal,
-      turn.isLastTile,
-      "",
-    ]),
-    [],
-    ["Final Scores"],
-    ...getRankings().map((player, index) => ["", "", "", player.name, "", "", "", "", player.score, "", doesAssignWinner() && index === 0 ? "Winner" : ""]),
-  ];
-
-  return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
-}
-
-function csvEscape(value) {
-  const text = String(value ?? "");
-  if (/[",\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
-function formatDateForFile(date) {
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`;
 }
 
 function formatDisplayDate(value) {
