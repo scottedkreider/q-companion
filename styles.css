@@ -357,6 +357,20 @@ input:focus-visible {
   opacity: 0.64;
 }
 
+.saved-notes {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+}
+
+.saved-notes p {
+  margin: 0;
+  line-height: 1.45;
+}
+
 .detail-meta {
   display: flex;
   flex-wrap: wrap;

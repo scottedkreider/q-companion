@@ -584,6 +584,7 @@ function renderBonusLines() {
 function renderResults(app) {
   const rankings = getRankings();
   const assignsWinner = doesAssignWinner();
+  const savedGame = state.recordedGameId ? GAME_ARCHIVE_ADAPTER.find(state.recordedGameId) : null;
   if (state.saveMode === "saveAll" && !state.recordedGameId) {
     setTimeout(() => autoSaveCompletedGame(), 0);
   }
@@ -600,6 +601,7 @@ function renderResults(app) {
         ${!assignsWinner ? '<p class="muted">Game ended manually. No winner assigned.</p>' : ""}
         ${state.saveMode === "saveAll" ? '<p class="muted">Save All Games is on. This game will be kept in Game History.</p>' : ""}
         ${renderFinalScoresGrid(rankings, assignsWinner)}
+        ${renderSavedNotes(savedGame)}
         <div class="button-row">
           <button class="ghost" data-action="record-game" data-return-screen="results">${state.recordedGameId ? "Edit Saved Notes" : "Save Game"}</button>
           <button class="primary" data-action="csv">Save CSV</button>
@@ -622,6 +624,17 @@ function renderResults(app) {
   bind("[data-action='sheet']", "click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
   bind("[data-action='scores']", "click", scrollToFinalScores);
   setTimeout(scrollToFinalScores, 0);
+}
+
+function renderSavedNotes(savedGame) {
+  if (!savedGame) return "";
+
+  return `
+    <div class="saved-notes">
+      <h3 class="section-title">Notes</h3>
+      ${savedGame.notes ? `<p>${escapeHtml(savedGame.notes)}</p>` : '<p class="muted">No notes yet.</p>'}
+    </div>
+  `;
 }
 
 function renderRecordGame(app) {
