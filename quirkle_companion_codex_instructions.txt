@@ -1,0 +1,937 @@
+# Codex Build Instructions: Quirkle Companion
+
+## Project Goal
+
+Create a lightweight, phone-optimized web app for keeping score during a game of Quirkle / Qwirkle.
+
+The app should be simple, fast, tactile, and easy to use during live tabletop play. It should understand the scoring flow of Quirkle and reduce the need for paper scorekeeping.
+
+Primary use case: one person opens the app on their phone or browser and tracks all players’ scores during the game.
+
+---
+
+# App Name
+
+Use the app name:
+
+Quirkle Companion
+
+Name can be changed later. Prioritize functionality first.
+
+---
+
+# Tech Stack
+
+Use:
+
+- HTML
+- CSS
+- Vanilla JavaScript
+
+No frameworks for MVP unless absolutely necessary.
+
+The app should run locally in a browser by opening index.html.
+
+Recommended file structure:
+
+quirkle-companion/
+  index.html
+  styles.css
+  app.js
+  README.md
+
+---
+
+# Core Product Requirements
+
+## The App Must Support
+
+- 2 players
+- 3 players
+- 4 players
+- Custom player names
+- Choosing who goes first
+- Reordering players before game start
+- Turn-by-turn score entry
+- Automatic turn advancement
+- Qwirkle bonus scoring
+- First Out / Last Tile bonus scoring
+- Final score calculation
+- Results page
+- CSV export of the final score history
+- New Game reset
+
+---
+
+# Important Spelling Note
+
+The game is commonly spelled Qwirkle, but the app should use the display title:
+
+Quirkle Companion
+
+In code comments, it is fine to mention that this follows Qwirkle-style scoring.
+
+---
+
+# Scoring Rules to Implement
+
+## Normal Turn
+
+Each turn, a player scores a non-negative number of points.
+
+Examples:
+
+0 points = player reset/exchanged tiles
+1+ points = normal scoring
+
+The user should enter the total points for that turn, not each tile individually.
+
+## Qwirkle Button
+
+A Qwirkle is worth a bonus.
+
+In Qwirkle rules, completing a line of 6 scores:
+
+6 points for the tiles
++ 6 bonus points
+= 12 total points
+
+For this app, implement Qwirkle scoring as an easy button.
+
+The interface should support:
+
+- Entering normal score manually
+- Adding Qwirkle bonus
+- Making it obvious whether the score entered already includes the Qwirkle total or not
+
+Recommended MVP behavior:
+
+Have a button labeled:
+
+Qwirkle +6
+
+When tapped, it adds 6 bonus points to the current turn score.
+
+Example:
+
+User enters 6
+User taps Qwirkle +6
+Current turn total becomes 12
+User taps Enter
+
+This avoids ambiguity.
+
+Also include one convenience button:
+
+12 Qwirkle
+
+This sets the current score to 12 if the player scored a single standard Qwirkle line.
+
+This allows fast entry.
+
+## Reset Hand / Exchange Tiles
+
+If a player exchanges tiles or resets their hand and scores no points, the score for the turn is:
+
+0
+
+Represent this with a prominent button:
+
+0 / Reset Hand
+
+This sets current turn score to 0.
+
+## First Out / Last Tile Bonus
+
+The game ends when a player plays their last tile.
+
+The player who goes out gets:
+
++6 bonus points
+
+Implement a button:
+
+Last Tile +6
+
+When selected for the current turn, it adds 6 bonus points to the current player’s submitted turn score and ends the game after submission.
+
+Recommended flow:
+
+Player enters turn score
+Player taps Last Tile +6
+Player taps Enter
+App adds score + 6 bonus
+Game locks
+Results page displays
+
+---
+
+# MVP Exclusions
+
+Do not implement these in MVP:
+
+- Undo
+- Quick global edit
+- Advanced score editing
+- Multiplayer link sharing
+- Cloud sync
+- User accounts
+- Online persistence
+- Photo attachment
+- Game history beyond the current browser session
+
+These can be future extensions.
+
+---
+
+# App Flow
+
+## Screen 1: Start Game
+
+Purpose: introduce app and begin setup.
+
+Elements:
+
+- App title: Quirkle Companion
+- Short subtitle: Fast scorekeeping for live Quirkle games.
+- Button: Start Game
+
+When clicked, move to Player Count screen.
+
+---
+
+## Screen 2: Choose Player Count
+
+User selects:
+
+- 2 players
+- 3 players
+- 4 players
+
+After selection, show player name entry fields.
+
+---
+
+## Screen 3: Enter Player Names
+
+Show one input per player.
+
+Defaults:
+
+Player 1
+Player 2
+Player 3
+Player 4
+
+Only show as many fields as selected.
+
+Requirements:
+
+- Inputs should be large and phone-friendly.
+- Empty names should fall back to defaults.
+- Button: Continue
+
+---
+
+## Screen 4: Set Turn Order
+
+Purpose: player order should match the physical order around the table.
+
+Show players as a vertical list.
+
+For each player, include:
+
+- Player name
+- Move up button
+- Move down button
+
+Also allow selecting who goes first.
+
+Possible MVP approach:
+
+- Reordering changes the order.
+- The first player in the list is the first player.
+- Include helper text: Put the first player at the top.
+
+Button:
+
+Start Play
+
+When tapped:
+
+- Save player order
+- Initialize all scores to 0
+- Set active player index to 0
+- Move to Game screen
+
+---
+
+# Main Game Screen
+
+This is the most important screen.
+
+It should be optimized for one-handed phone use.
+
+## Main Game Screen Layout
+
+Top area:
+
+- Current player name
+- Current total score
+- Turn indicator
+
+Example:
+
+Sam's Turn
+Total: 42
+Turn 11
+
+Middle area:
+
+- Current score input display
+
+Example:
+
+Current Turn
+12
+
+This should feel like a calculator display.
+
+Controls area:
+
+- Numpad buttons
+- Enter button
+- Clear button
+- 0 / Reset Hand button
+- Qwirkle +6 button
+- 12 Qwirkle button
+- Last Tile +6 toggle/button
+
+Bottom area:
+
+- Small scoreboard showing all players
+- Highlight current player
+
+Example:
+
+Sam       42
+Alex      38
+Jordan    51
+
+---
+
+# Score Entry Behavior
+
+The score input should work like a calculator/numpad.
+
+## Numpad
+
+Buttons:
+
+7 8 9
+4 5 6
+1 2 3
+0 Clear Enter
+
+Behavior:
+
+- Pressing number buttons appends digits.
+- Empty input plus 5 becomes 5.
+- 1 then 2 becomes 12.
+- Leading zeros should be avoided.
+- Clear resets current input to empty or 0.
+- Enter submits the current turn.
+
+## Keyboard Support
+
+Also support physical keyboard input for browser dev:
+
+- Number keys append digits
+- Enter submits
+- Backspace deletes last digit
+- Escape clears
+
+## Current Turn Score
+
+Internally track:
+
+currentInputValue
+qwirkleBonusApplied
+lastTileBonusApplied
+currentTurnTotal
+
+Possible simplified model:
+
+baseTurnScore = Number(inputValue || 0)
+qwirkleBonus = qwirkleBonusApplied ? 6 : 0
+lastTileBonus = lastTileBonusApplied ? 6 : 0
+turnTotal = baseTurnScore + qwirkleBonus + lastTileBonus
+
+Display should clearly show this.
+
+Example:
+
+Base: 6
+Qwirkle: +6
+Last Tile: +0
+Turn Total: 12
+
+But keep UI clean. Maybe show details only when bonuses are active.
+
+---
+
+# Turn Submission
+
+When the user taps Enter:
+
+1. Determine current player.
+2. Calculate turn total.
+3. Add turn total to current player’s total score.
+4. Record the turn in score history.
+5. If Last Tile was selected:
+   - End game.
+   - Lock scores.
+   - Move to Results screen.
+6. Otherwise:
+   - Clear current turn input.
+   - Clear Qwirkle bonus.
+   - Clear Last Tile flag.
+   - Advance to next player.
+   - Increment turn counter.
+
+## Turn History Object
+
+Each submitted turn should create an object:
+
+{
+  turnNumber: 1,
+  roundNumber: 1,
+  playerId: "p1",
+  playerName: "Sam",
+  baseScore: 6,
+  qwirkleBonus: 6,
+  lastTileBonus: 0,
+  turnTotal: 12,
+  runningTotal: 42,
+  isLastTile: false,
+  timestamp: "2026-05-03T..."
+}
+
+Round number can be calculated as:
+
+Math.floor((turnNumber - 1) / playerCount) + 1
+
+---
+
+# Results Screen
+
+When the game ends:
+
+## Scores Lock
+
+No more turns can be entered.
+
+## Results Display
+
+Show final ranking by score, descending.
+
+Example:
+
+Final Results
+
+1. Jordan — 126
+2. Sam — 118
+3. Alex — 103
+
+Clearly mark winner.
+
+## Also Show
+
+Buttons:
+
+Save CSV
+New Game
+
+Optional MVP button:
+
+View Score Sheet
+
+---
+
+# CSV Export Requirement
+
+Implement CSV export to device.
+
+CSV should include:
+
+- Game date
+- Player count
+- Final scores
+- Full turn history
+
+Recommended CSV columns:
+
+Game Date,Turn Number,Round Number,Player Name,Base Score,Qwirkle Bonus,Last Tile Bonus,Turn Total,Running Total,Is Last Tile
+
+Example row:
+
+2026-05-03,1,1,Sam,6,6,0,12,12,false
+
+The file name should include date/time.
+
+Example:
+
+quirkle_scores_2026-05-03_21-44.csv
+
+Use browser download behavior:
+
+const blob = new Blob([csvContent], { type: "text/csv" });
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+a.download = filename;
+a.click();
+URL.revokeObjectURL(url);
+
+---
+
+# Score Sheet View
+
+MVP should ideally include a simple score sheet view.
+
+This should resemble a paper score sheet.
+
+Rows:
+
+- Each submitted turn
+
+Columns:
+
+- Turn
+- Round
+- Player
+- Base Score
+- Bonuses
+- Turn Total
+- Running Total
+
+This can be shown either:
+
+- On the Results screen
+- Or behind a View Score Sheet button
+
+Keep it simple.
+
+---
+
+# State Model
+
+Use a single app state object.
+
+Suggested:
+
+const state = {
+  screen: "start",
+  playerCount: 0,
+  players: [],
+  activePlayerIndex: 0,
+  turnNumber: 1,
+  inputValue: "",
+  qwirkleBonusApplied: false,
+  lastTileBonusApplied: false,
+  gameStartedAt: null,
+  gameEndedAt: null,
+  turnHistory: [],
+  gameOver: false
+};
+
+Player object:
+
+{
+  id: "p1",
+  name: "Sam",
+  score: 0
+}
+
+---
+
+# Rendering Approach
+
+Use simple conditional rendering in JavaScript.
+
+Recommended:
+
+function render() {
+  const app = document.getElementById("app");
+
+  if (state.screen === "start") renderStart(app);
+  if (state.screen === "playerCount") renderPlayerCount(app);
+  if (state.screen === "names") renderNames(app);
+  if (state.screen === "order") renderOrder(app);
+  if (state.screen === "game") renderGame(app);
+  if (state.screen === "results") renderResults(app);
+}
+
+Keep all screen rendering functions in app.js.
+
+---
+
+# Design Direction
+
+The app should be:
+
+- Simple
+- Clear
+- Touch-friendly
+- Calm
+- Slightly weighty
+- Not childish
+- Not over-decorated
+- Fast during live play
+
+Visual style:
+
+- Light background
+- Plenty of empty space
+- Strong buttons
+- Large tap targets
+- Soft shadows
+- Rounded corners
+- Minimal color palette
+- Current player should be visually obvious
+
+Suggested color direction:
+
+Background: warm off-white
+Text: near-black / charcoal
+Primary: deep green or teal
+Accent: golden yellow
+Danger/end-game: muted red or rust
+Cards: white or very light cream
+
+Do not make it look like a toy app.
+
+Make interactions feel chunky and satisfying.
+
+---
+
+# Phone Optimization
+
+Prioritize phone layout first.
+
+Requirements:
+
+- App should look good at widths around 360px–430px.
+- Buttons should be large enough for thumbs.
+- Numpad buttons should be large.
+- Avoid tiny text.
+- Avoid wide tables on the game screen.
+- Results and score sheet can scroll vertically.
+- Main scoring controls should remain easy to reach.
+
+Use CSS like:
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.app-shell {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+---
+
+# Accessibility
+
+Implement basic accessibility:
+
+- Buttons should be real <button> elements.
+- Inputs should have labels.
+- Current player should be clearly indicated visually and textually.
+- Avoid color-only meaning.
+- Use readable contrast.
+- Use aria-live for current turn/score updates if easy.
+
+---
+
+# Validation Rules
+
+## Player Count
+
+Must be 2, 3, or 4.
+
+## Player Names
+
+If empty, use default names.
+
+## Score Input
+
+Allowed:
+
+- 0
+- Positive integers
+
+Disallowed:
+
+- Negative numbers
+- Decimals
+
+For MVP:
+
+Empty input = 0
+
+## Last Tile
+
+If Last Tile is selected, the app ends the game on Enter.
+
+User does not need a confirmation modal in MVP, but the button should visibly toggle on/off before Enter.
+
+---
+
+# Important UX Details
+
+## Main Turn Entry Should Be Fast
+
+The core loop should be:
+
+Tap score
+Tap Enter
+Next player appears
+
+Example:
+
+Player scores 8
+Tap 8
+Tap Enter
+App advances
+
+For 12:
+
+Tap 1
+Tap 2
+Tap Enter
+
+For 0/reset hand:
+
+Tap 0 / Reset Hand
+Tap Enter
+
+For Qwirkle:
+
+Tap 6
+Tap Qwirkle +6
+Tap Enter
+
+or:
+
+Tap 12 Qwirkle
+Tap Enter
+
+For final play:
+
+Tap score
+Tap Last Tile +6
+Tap Enter
+Game ends
+
+---
+
+# MVP Feature Checklist
+
+Build these:
+
+- Start screen
+- Player count selection
+- Player name entry
+- Player reorder screen
+- Main scoring screen
+- Numpad score entry
+- Keyboard score entry
+- 0 / Reset Hand button
+- Qwirkle +6 button
+- 12 Qwirkle button
+- Last Tile +6 button
+- Automatic turn advancement
+- Running scoreboard
+- Turn history
+- Results page
+- Winner ranking
+- CSV export
+- New Game reset
+- Responsive phone-first CSS
+
+Do not build undo/edit/history persistence yet.
+
+---
+
+# Future Extension Notes
+
+Leave code structured so future additions are possible.
+
+Potential future features:
+
+## Undo
+
+Undo last submitted turn.
+
+Would require:
+
+- Pop last item from turnHistory
+- Restore player score
+- Restore active player
+- Restore turn number
+
+## Quick Global Edit
+
+Allow editing mistaken prior scores.
+
+Not MVP.
+
+## Link Sharing
+
+Future version could store game state in:
+
+- URL
+- localStorage
+- Firebase
+- Supabase
+- simple backend
+
+Not MVP.
+
+## Save Game History
+
+Future version could save completed games to localStorage.
+
+Could show:
+
+- Date
+- Players
+- Winner
+- Final scores
+
+Not MVP.
+
+## Picture Attachment
+
+Future version could allow attaching a photo of the physical board or players.
+
+Not MVP.
+
+---
+
+# README Requirement
+
+Create a README.md explaining:
+
+- What the app does
+- How to run it locally
+- Basic scoring flow
+- MVP exclusions
+- Future extension ideas
+
+Basic README instructions:
+
+# Quirkle Companion
+
+A simple browser-based scorekeeping app for Quirkle/Qwirkle.
+
+## Run Locally
+
+Open index.html in a browser.
+
+No build step required.
+
+## MVP Features
+
+- 2–4 players
+- Custom names
+- Player order
+- Turn-by-turn scoring
+- Qwirkle bonus
+- Last tile bonus
+- Results
+- CSV export
+
+---
+
+# Implementation Guidance
+
+Please implement this as cleanly as possible with:
+
+- Clear functions
+- Minimal global state except the central state object
+- No framework
+- No build step
+- No external dependencies
+- Clean comments where useful
+- Good mobile layout
+- Usable default styling
+
+The finished app should be immediately testable by opening index.html.
+
+---
+
+# Acceptance Test Scenarios
+
+After building, verify these scenarios.
+
+## Scenario 1: Two-player normal game
+
+1. Start game
+2. Select 2 players
+3. Name players Sam and Alex
+4. Start play
+5. Sam enters 5
+6. Alex enters 7
+7. Sam enters 0
+8. Alex enters 10
+9. Scores should be:
+   - Sam: 5
+   - Alex: 17
+
+## Scenario 2: Qwirkle score
+
+1. Current player enters 6
+2. Taps Qwirkle +6
+3. Turn total displays 12
+4. Taps Enter
+5. Player score increases by 12
+
+## Scenario 3: 12 Qwirkle shortcut
+
+1. Current player taps 12 Qwirkle
+2. Turn total displays 12
+3. Taps Enter
+4. Player score increases by 12
+
+## Scenario 4: Last tile ends game
+
+1. Current player enters 8
+2. Taps Last Tile +6
+3. Turn total displays 14
+4. Taps Enter
+5. Game ends
+6. Results screen appears
+7. Scores are locked
+
+## Scenario 5: CSV export
+
+1. Finish a game
+2. Tap Save CSV
+3. Browser downloads CSV
+4. CSV includes turn history and final scores
+
+---
+
+# One Important Design Principle
+
+This app is not trying to simulate the whole game.
+
+It is a fast scorekeeping companion.
+
+Do not overbuild tile logic, board validation, or game rules beyond scoring.
