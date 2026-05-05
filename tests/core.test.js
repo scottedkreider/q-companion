@@ -98,6 +98,25 @@ test("undo after last tile reopens the game without an edited marker", () => {
   assert.equal(state.turnHistory.length, 0);
 });
 
+test("undo history is bounded to the five most recent turns", () => {
+  let state = makeStartedState(2);
+  for (let index = 0; index < 7; index += 1) {
+    state = QC.submitTurn({ ...state, inputValue: String(index + 1) }, `2026-05-03T20:0${index}:00.000Z`);
+  }
+
+  assert.equal(state.undoHistory.length, 5);
+
+  for (let index = 0; index < 5; index += 1) {
+    state = QC.undoLastTurn(state);
+  }
+
+  assert.equal(state.turnHistory.length, 2);
+  assert.deepEqual(
+    state.players.map((player) => player.score),
+    [1, 2]
+  );
+});
+
 test("manual score edit marks a turn and recomputes later running totals", () => {
   let state = makeStartedState(2);
   state = QC.submitTurn({ ...state, inputValue: "5" }, "2026-05-03T20:01:00.000Z");

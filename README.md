@@ -22,7 +22,7 @@ Run:
 npm test
 ```
 
-Tests cover the pure scoring, ranking, round, winner, and archive snapshot logic in `core.js`.
+Tests cover the pure scoring, ranking, round, winner, undo, manual score edit, and archive snapshot logic in `core.js`.
 
 ## Branding
 
@@ -67,6 +67,8 @@ The start screen offers two save modes:
 - Recent layout selection remembered
 - Sessionless or Save All Games history mode
 - Saved game history with notes
+- Bounded quick undo for recent score entries
+- Manual score sheet editing with edited-score indicators
 - Photo upload placeholder for future storage work
 - Paper-style multi-column score grid
 - Final score sheet in player-column format
@@ -85,19 +87,14 @@ Enter the total base score for the current turn, then use bonus buttons if neede
 
 ## MVP Exclusions
 
-- Undo
-- Editing prior turns
 - Multiplayer link sharing
 - Cloud sync
 - User accounts
-- Completed game history
 - Tile placement or board validation
 
 ## Future Extension Ideas
 
-- Undo last turn
-- Edit score sheet rows
-- Save completed game history
+- Export/import of saved game history
 - Shareable realtime game links
 - Backend storage adapter
 - Lightweight installable PWA support

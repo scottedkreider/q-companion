@@ -21,6 +21,7 @@ This is a no-build, local-first prototype for fast tabletop scorekeeping. The us
   - `Save All Games`: finished games are archived automatically.
 - Dangerous actions need a safe second step. Current pattern: `End Game` arms a `Keep Playing` / `End Now` choice.
 - Recent player names and layout preference should make replays easy.
+- History should feel archival: note editing and deletion are intentionally low-priority controls near the bottom of saved-game detail.
 
 ## Current Architecture
 
@@ -37,10 +38,14 @@ This is a no-build, local-first prototype for fast tabletop scorekeeping. The us
 - Game History is a visual archive only.
 - Photo upload is intentionally a placeholder until storage strategy is chosen.
 - Old games store full score sheet data, notes, final scores, players, dates, status, and end reason.
+- Quick undo is for recent mistakes only and is bounded to five submitted turns.
+- Manual score edits are explicitly marked with an edited indicator; quick undo must not create that marker.
+- The final game name is read-only by default on results, with an explicit edit/save/cancel flow.
+- Table active-player affordance is CSS-only right now; it may become a theme/user option later if the styling keeps evolving.
 
 ## Future Touches
 
-- Add delete/rename for saved games.
+- Add rename for saved games if archived titles need post-save editing.
 - Add true photo attachment only after deciding storage limits and backend direction.
 - Consider export/import of saved game history.
 - Revisit the table visualization after a few real uses; keep it low-fidelity and calm.

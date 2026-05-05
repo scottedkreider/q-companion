@@ -263,6 +263,8 @@ const initialState = () =>
   });
 
 let state = hydrateState(STORAGE_ADAPTER.load()) || initialState();
+let activePressButton = null;
+const PRESS_TIMERS = new WeakMap();
 
 document.addEventListener("DOMContentLoaded", () => {
   document.title = BRAND.appName;
@@ -294,10 +296,15 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("click", (event) => {
-  const button = event.target.closest("button");
+  const button = getEventButton(event);
   if (!button || button.disabled) return;
+  pulseButtonPress(button);
   triggerHaptic();
 });
+
+document.addEventListener("pointerdown", handleButtonPointerDown);
+document.addEventListener("pointerup", releaseActiveButtonPress, true);
+document.addEventListener("pointercancel", releaseActiveButtonPress, true);
 
 function hydrateState(savedState) {
   return QC.hydrateState(savedState, initialState());
@@ -546,9 +553,10 @@ function renderGame(app) {
             ${renderTurnCard(currentPlayer)}
             ${renderMobileScoreSummary()}
             ${renderScoreDisplay()}
-            ${renderEntryPad()}
+            ${renderEntryPad(false)}
             ${renderTurnOrderViz()}
             ${renderScoreboardPanel()}
+            ${renderMobileEndGameControl()}
           `
       }
       ${renderScoreEditDialog()}
@@ -619,12 +627,12 @@ function renderPendingScorePreview() {
   return hasPendingInput ? `<span class="pending-score">+${pendingTotal}</span>` : "";
 }
 
-function renderEntryPad() {
+function renderEntryPad(includeEndGame = true) {
   return `
     <div class="entry-pad">
       ${renderNumpad()}
       ${renderQuickControls()}
-      ${renderEndGameButton()}
+      ${includeEndGame ? renderEndGameButton() : ""}
     </div>
   `;
 }
@@ -712,6 +720,14 @@ function renderEndGameButton() {
     <div class="end-game-confirm">
       <button class="ghost" data-action="cancel-end-game">Keep Playing</button>
       <button class="danger" data-action="confirm-end-game">End Now</button>
+    </div>
+  `;
+}
+
+function renderMobileEndGameControl() {
+  return `
+    <div class="mobile-end-game-control">
+      ${renderEndGameButton()}
     </div>
   `;
 }
@@ -937,10 +953,6 @@ function renderHistoryDetail(app) {
           <strong>Photo</strong>
           <p class="muted">No photo attached. Upload is reserved for a later storage pass.</p>
         </div>
-        <div class="button-row">
-          <button class="ghost" data-action="edit-history-notes">Edit Notes</button>
-        </div>
-        ${renderHistoryDeleteControls(game)}
       </div>
       <div class="panel stack">
         <h2 class="section-title">Final Scores</h2>
@@ -949,6 +961,10 @@ function renderHistoryDetail(app) {
       <div class="panel stack">
         <h2 class="section-title">Score Sheet</h2>
         ${renderArchivedScoreSheet(game)}
+      </div>
+      <div class="history-maintenance">
+        <button class="subtle-history-action" data-action="edit-history-notes">Edit Notes</button>
+        ${renderHistoryDeleteControls(game)}
       </div>
       <div class="sticky-actions" aria-label="Saved game navigation">
         <button class="ghost" data-action="history">Back to History</button>
@@ -1000,11 +1016,11 @@ function renderEditHistoryNotes(app) {
 
 function renderHistoryDeleteControls(game) {
   if (state.deleteHistoryArmedId !== game.id) {
-    return `<button class="ghost delete-history-control" data-action="arm-delete-history">Delete Saved Game</button>`;
+    return `<button class="subtle-history-action delete-history-control" data-action="arm-delete-history">Delete Saved Game</button>`;
   }
 
   return `
-    <div class="end-game-confirm">
+    <div class="end-game-confirm history-delete-confirm">
       <button class="ghost" data-action="cancel-delete-history">Keep Saved Game</button>
       <button class="danger" data-action="confirm-delete-history">Delete</button>
     </div>
@@ -1116,12 +1132,10 @@ function renderArchivedScoreboardCell(game, round, player) {
   const turn = game.turnHistory.find((item) => item.roundNumber === round && item.playerId === player.id);
   if (!turn) return `<td class="score-empty">-</td>`;
   const previousTotal = getArchivedPreviousRunningTotal(game, turn);
-  const carry = turn.runningTotal >= 10 ? String(turn.runningTotal).slice(0, -1) : "";
   const preEndBonusTotal = turn.turnTotal - turn.lastTileBonus;
   return `
     <td>
       <div class="paper-entry">
-        ${carry ? `<span class="paper-carry">${carry}</span>` : ""}
         <span class="paper-crossout">${previousTotal}</span>
         <strong class="paper-turn">+${preEndBonusTotal}</strong>
         ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
@@ -1190,13 +1204,11 @@ function renderScoreboardCell(round, player) {
     return `<td class="${isCurrentOpenCell ? "score-open" : "score-empty"}">${isCurrentOpenCell ? "Next" : "-"}</td>`;
   }
   const previousTotal = getPreviousRunningTotal(turn);
-  const carry = turn.runningTotal >= 10 ? String(turn.runningTotal).slice(0, -1) : "";
   const preEndBonusTotal = turn.turnTotal - turn.lastTileBonus;
   return `
     <td>
       <button class="score-edit-button" type="button" data-edit-turn="${escapeAttribute(turn.id)}" aria-label="Edit ${escapeAttribute(player.name)} round ${round} score">
         <span class="paper-entry">
-          ${carry ? `<span class="paper-carry">${carry}</span>` : ""}
           <span class="paper-crossout">${previousTotal}</span>
           <strong class="paper-turn">+${preEndBonusTotal}</strong>
           ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
@@ -1334,6 +1346,36 @@ function triggerHaptic() {
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     navigator.vibrate(10);
   }
+}
+
+function getEventButton(event) {
+  return event.target instanceof Element ? event.target.closest("button") : null;
+}
+
+function handleButtonPointerDown(event) {
+  const button = getEventButton(event);
+  if (!button || button.disabled) return;
+  activePressButton = button;
+  button.classList.add("is-pressing");
+}
+
+function releaseActiveButtonPress() {
+  if (!activePressButton) return;
+  releaseButtonPress(activePressButton);
+  activePressButton = null;
+}
+
+function pulseButtonPress(button) {
+  button.classList.add("is-pressing");
+  releaseButtonPress(button, 120);
+}
+
+function releaseButtonPress(button, delay = 70) {
+  window.clearTimeout(PRESS_TIMERS.get(button));
+  const timer = window.setTimeout(() => {
+    button.classList.remove("is-pressing");
+  }, delay);
+  PRESS_TIMERS.set(button, timer);
 }
 
 function goToMainMenu() {
