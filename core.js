@@ -26,6 +26,7 @@
       endGameArmed: false,
       recordedGameId: null,
       finalGameTitle: "",
+      editingFinalTitle: false,
       historySelectedId: null,
       deleteHistoryArmedId: null,
       editingTurnId: null,

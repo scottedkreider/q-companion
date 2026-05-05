@@ -766,7 +766,8 @@ function renderResults(app) {
   }
   app.innerHTML = `
     <section class="screen results-screen">
-      ${renderHeader("Score Sheet", "Scroll through the game history, or jump back to the final scores.")}
+      ${renderHeader("Game Complete", "Review the score sheet, final scores, and game notes.")}
+      ${renderFinalTitleEditor()}
       <div class="panel stack">
         <h2 class="section-title">Final Score Sheet</h2>
         ${renderScoreSheet()}
@@ -778,9 +779,8 @@ function renderResults(app) {
         ${state.saveMode === "saveAll" ? '<p class="muted">Save All Games is on. This game will be kept in Game History.</p>' : ""}
         ${renderFinalScoresGrid(rankings, assignsWinner)}
         ${renderSavedNotes(savedGame)}
-        ${renderFinalTitleEditor()}
         <div class="button-row">
-          <button class="ghost" data-action="record-game" data-return-screen="results">${state.recordedGameId ? "Game Notes" : "Save Game"}</button>
+          <button class="ghost" data-action="record-game" data-return-screen="results">Edit Notes</button>
         </div>
       </div>
 
@@ -796,12 +796,26 @@ function renderResults(app) {
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "results" }));
   bind("[data-action='new']", "click", startFreshGame);
   bind("[data-form='final-title']", "submit", saveFinalTitle);
+  bind("[data-action='edit-final-title']", "click", () => setState({ editingFinalTitle: true }));
+  bind("[data-action='cancel-final-title']", "click", () => setState({ editingFinalTitle: false }));
   bindScoreEditing();
-  setTimeout(scrollToFinalScores, 0);
 }
 
 function renderFinalTitleEditor() {
   const title = state.finalGameTitle || makeGameTitle(state);
+  if (!state.editingFinalTitle) {
+    return `
+      <div class="final-title-editor final-title-view">
+        <div>
+          <p class="muted">Game name</p>
+          <h2 class="section-title">${escapeHtml(title)}</h2>
+          <p class="muted">Date: ${escapeHtml(formatDisplayDate(state.gameStartedAt || state.gameEndedAt))}</p>
+        </div>
+        <button class="ghost" type="button" data-action="edit-final-title">Edit Name</button>
+      </div>
+    `;
+  }
+
   return `
     <form class="final-title-editor" data-form="final-title">
       <div class="field">
@@ -809,33 +823,29 @@ function renderFinalTitleEditor() {
         <input id="final-game-title" name="title" value="${escapeAttribute(title)}" autocomplete="off">
       </div>
       <p class="muted">Date: ${escapeHtml(formatDisplayDate(state.gameStartedAt || state.gameEndedAt))}</p>
-      <button class="ghost" type="submit">Update Name</button>
+      <div class="button-row">
+        <button class="primary" type="submit">Save Name</button>
+        <button class="ghost" type="button" data-action="cancel-final-title">Cancel</button>
+      </div>
     </form>
   `;
 }
 
 function renderSavedNotes(savedGame) {
-  if (!savedGame) return "";
-
   return `
     <div class="saved-notes">
       <h3 class="section-title">Notes</h3>
-      ${savedGame.notes ? `<p>${escapeHtml(savedGame.notes)}</p>` : '<p class="muted">No notes yet.</p>'}
+      ${savedGame?.notes ? `<p>${escapeHtml(savedGame.notes)}</p>` : '<p class="muted">No notes yet.</p>'}
     </div>
   `;
 }
 
 function renderRecordGame(app) {
   const existingGame = state.recordedGameId ? GAME_ARCHIVE_ADAPTER.find(state.recordedGameId) : null;
-  const defaultTitle = state.finalGameTitle || makeGameTitle(state);
   app.innerHTML = `
     <section class="screen">
-      ${renderHeader("Save Game", "Save a snapshot without changing the active game.")}
+      ${renderHeader("Edit Notes", "Keep table memories without changing the active game.")}
       <form class="panel stack" data-form="record-game">
-        <div class="field">
-          <label for="game-title">Game name</label>
-          <input id="game-title" name="title" value="${escapeAttribute(existingGame?.title || defaultTitle)}" autocomplete="off">
-        </div>
         <div class="field">
           <label for="game-notes">Notes</label>
           <textarea id="game-notes" name="notes" rows="5" placeholder="Who played, where it happened, weird table moments, anything worth remembering.">${escapeHtml(existingGame?.notes || "")}</textarea>
@@ -846,7 +856,7 @@ function renderRecordGame(app) {
           <button type="button" disabled>Add Photo Later</button>
         </div>
         <div class="button-row">
-          <button class="primary" type="submit">${existingGame ? "Save" : "Save Game"}</button>
+          <button class="primary" type="submit">Save Notes</button>
           <button class="ghost" type="button" data-action="cancel-record">Cancel</button>
         </div>
       </form>
@@ -1356,7 +1366,7 @@ function openRecordGame(returnScreen) {
 function saveRecordedGame(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const title = String(form.get("title") || "").trim() || makeGameTitle(state);
+  const title = state.finalGameTitle || makeGameTitle(state);
   const notes = String(form.get("notes") || "").trim();
   const savedGame = makeGameSnapshot({ title, notes });
   GAME_ARCHIVE_ADAPTER.upsert(savedGame);
@@ -1381,7 +1391,7 @@ function saveFinalTitle(event) {
     const game = GAME_ARCHIVE_ADAPTER.find(state.recordedGameId);
     if (game) GAME_ARCHIVE_ADAPTER.upsert({ ...game, title: finalGameTitle, updatedAt: new Date().toISOString() });
   }
-  setState({ finalGameTitle });
+  setState({ finalGameTitle, editingFinalTitle: false });
 }
 
 function autoSaveCompletedGame() {
@@ -1499,6 +1509,7 @@ function startPlay() {
     endGameArmed: false,
     recordedGameId: null,
     finalGameTitle: "",
+    editingFinalTitle: false,
     editingTurnId: null,
     orderSelectedIndex: null,
     screen: "game",

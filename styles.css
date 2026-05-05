@@ -1478,6 +1478,7 @@ input:focus-visible {
 }
 
 .score-edit-button {
+  display: block;
   width: 100%;
   min-height: 0;
   border: 0;
@@ -1488,6 +1489,20 @@ input:focus-visible {
 }
 
 .score-edit-button:hover {
+  background: rgba(31, 111, 100, 0.08);
+}
+
+[data-theme] .score-paper-table .score-edit-button,
+[data-theme] .score-paper-table .score-edit-button:active {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+[data-theme] .score-paper-table .score-edit-button:hover {
   background: rgba(31, 111, 100, 0.08);
 }
 
@@ -1777,6 +1792,16 @@ input:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-strong);
+}
+
+.final-title-view {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.final-title-view .section-title {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
 .empty-history {
@@ -2122,10 +2147,6 @@ input:focus-visible {
     max-height: none;
     display: flex;
     flex-direction: column;
-  }
-
-  .wide-mode .rounds-paper .score-paper-table {
-    margin-top: auto;
   }
 
   .wide-mode .screen-title {
