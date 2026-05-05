@@ -29,6 +29,7 @@ const BRAND = {
     cabin: "Cabin",
     royale: "Royale",
     toyShop: "Toy Shop",
+    ti95: "TI-95",
   },
 };
 
@@ -314,13 +315,14 @@ function persist() {
   STORAGE_ADAPTER.save(state);
 }
 
-function setState(partial) {
+function setState(partial, options = {}) {
+  const scoreScrollTop = options.skipScoreScroll ? getLiveScoreboardScrollTop() : null;
   state = { ...state, ...partial };
   persist();
-  render();
+  render({ ...options, scoreScrollTop });
 }
 
-function render() {
+function render(options = {}) {
   const app = document.getElementById("app");
   if (!app) return;
   document.documentElement.dataset.theme = normalizeThemeMode(state.themeMode);
@@ -330,7 +332,7 @@ function render() {
   if (state.screen === "playerCount") renderPlayerCount(app);
   if (state.screen === "names") renderNames(app);
   if (state.screen === "order") renderOrder(app);
-  if (state.screen === "game") renderGame(app);
+  if (state.screen === "game") renderGame(app, options);
   if (state.screen === "results") renderResults(app);
   if (state.screen === "recordGame") renderRecordGame(app);
   if (state.screen === "history") renderHistory(app);
@@ -526,7 +528,7 @@ function renderOrder(app) {
   bind("[data-action='start-play']", "click", startPlay);
 }
 
-function renderGame(app) {
+function renderGame(app, options = {}) {
   const currentPlayer = state.players[state.activePlayerIndex];
   const layoutMode = state.layoutMode === "wide" ? "wide" : "default";
   app.innerHTML = `
@@ -582,7 +584,11 @@ function renderGame(app) {
   bind("[data-action='confirm-end-game']", "click", endGameManually);
   bind("[data-action='undo-last']", "click", undoLastEntry);
   bindScoreEditing();
-  setTimeout(scrollLiveScoreboardToBottom, 0);
+  if (!options.skipScoreScroll) {
+    setTimeout(scrollLiveScoreboardToBottom, 0);
+  } else if (options.scoreScrollTop !== null) {
+    setTimeout(() => restoreLiveScoreboardScroll(options.scoreScrollTop), 0);
+  }
 }
 
 function renderGameSettings(layoutMode) {
@@ -1566,31 +1572,31 @@ function startFreshGame() {
 
 function appendDigit(digit) {
   const nextValue = state.inputValue === "0" ? digit : `${state.inputValue}${digit}`;
-  setState({ inputValue: nextValue.replace(/^0+(?=\d)/, ""), endGameArmed: false });
+  setState({ inputValue: nextValue.replace(/^0+(?=\d)/, ""), endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function backspaceInput() {
-  setState({ inputValue: state.inputValue.slice(0, -1), endGameArmed: false });
+  setState({ inputValue: state.inputValue.slice(0, -1), endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function clearInput() {
-  setState({ inputValue: "", endGameArmed: false });
+  setState({ inputValue: "", endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function resetHand() {
-  setState({ inputValue: "0", lineBonusApplied: false, endGameArmed: false });
+  setState({ inputValue: "0", lineBonusApplied: false, endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function toggleLineBonus() {
-  setState({ lineBonusApplied: !state.lineBonusApplied, endGameArmed: false });
+  setState({ lineBonusApplied: !state.lineBonusApplied, endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function standardLineScore() {
-  setState({ inputValue: "12", lineBonusApplied: false, endGameArmed: false });
+  setState({ inputValue: "12", lineBonusApplied: false, endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function toggleLastTileBonus() {
-  setState({ lastTileBonusApplied: !state.lastTileBonusApplied, endGameArmed: false });
+  setState({ lastTileBonusApplied: !state.lastTileBonusApplied, endGameArmed: false }, { skipScoreScroll: true });
 }
 
 function armEndGame() {
@@ -1699,6 +1705,16 @@ function scrollToFinalScores() {
 function scrollLiveScoreboardToBottom() {
   const scoreSheet = document.querySelector("[data-score-rounds]");
   if (scoreSheet) scoreSheet.scrollTop = scoreSheet.scrollHeight;
+}
+
+function getLiveScoreboardScrollTop() {
+  const scoreSheet = document.querySelector("[data-score-rounds]");
+  return scoreSheet ? scoreSheet.scrollTop : null;
+}
+
+function restoreLiveScoreboardScroll(scrollTop) {
+  const scoreSheet = document.querySelector("[data-score-rounds]");
+  if (scoreSheet) scoreSheet.scrollTop = scrollTop;
 }
 
 function bind(selector, eventName, handler) {

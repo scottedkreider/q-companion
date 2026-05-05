@@ -1,6 +1,6 @@
 # Q App Feedback Implementation Plan
 
-Purpose: Implement the following UX/product feedback into the Q / Quirkle Companion app repo. This plan is optimized for Codex: clear scope, implementation order, likely touchpoints, and acceptance criteria.
+Purpose: Implement the following UX/product feedback into the Q Companion app repo. This plan is optimized for Codex: clear scope, implementation order, likely touchpoints, and acceptance criteria.
 
 Working assumptions:
 - The app is a front-end-first web app.
@@ -69,7 +69,7 @@ function capitalizeFirstLetter(value) {
 Add slight animation for button presses.
 
 ### Implementation Notes
-- Apply to score buttons, numpad buttons, Enter, Quirkle buttons, Last Tile, Undo, and other primary game action buttons.
+- Apply to score buttons, numpad buttons, Enter, Q buttons, Last Tile, Undo, and other primary game action buttons.
 - Keep the animation subtle and fast.
 - Prefer CSS-only interaction states:
   - `:active { transform: scale(0.96); }`
@@ -316,7 +316,7 @@ They can adjust the default value. Always keep the date easily visible, but allo
 - Make game name editable, probably with an input field or edit button.
 - Keep the date separate from the editable title.
 - Suggested display:
-  - Editable title: `Quirkle Game`
+  - Editable title: `Q Game`
   - Fixed visible date: `May 5, 2026`
 - Persist edited name in the completed game record/history/archive if history exists.
 - Do not bake the date into the editable string unless current app structure requires it.

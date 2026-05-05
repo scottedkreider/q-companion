@@ -1,10 +1,10 @@
-# Codex Build Instructions: Quirkle Companion
+# Codex Build Instructions: Q Companion
 
 ## Project Goal
 
-Create a lightweight, phone-optimized web app for keeping score during a game of Quirkle / Qwirkle.
+Create a lightweight, phone-optimized web app for keeping score during a game of Q.
 
-The app should be simple, fast, tactile, and easy to use during live tabletop play. It should understand the scoring flow of Quirkle and reduce the need for paper scorekeeping.
+The app should be simple, fast, tactile, and easy to use during live tabletop play. It should understand the scoring flow of Q and reduce the need for paper scorekeeping.
 
 Primary use case: one person opens the app on their phone or browser and tracks all players’ scores during the game.
 
@@ -14,7 +14,7 @@ Primary use case: one person opens the app on their phone or browser and tracks 
 
 Use the app name:
 
-Quirkle Companion
+Q Companion
 
 Name can be changed later. Prioritize functionality first.
 
@@ -34,7 +34,7 @@ The app should run locally in a browser by opening index.html.
 
 Recommended file structure:
 
-quirkle-companion/
+q-companion/
   index.html
   styles.css
   app.js
@@ -54,7 +54,7 @@ quirkle-companion/
 - Reordering players before game start
 - Turn-by-turn score entry
 - Automatic turn advancement
-- Qwirkle bonus scoring
+- Q bonus scoring
 - First Out / Last Tile bonus scoring
 - Final score calculation
 - Results page
@@ -65,11 +65,11 @@ quirkle-companion/
 
 # Important Spelling Note
 
-The game is commonly spelled Qwirkle, but the app should use the display title:
+The app should use the display title:
 
-Quirkle Companion
+Q Companion
 
-In code comments, it is fine to mention that this follows Qwirkle-style scoring.
+In code comments, it is fine to mention that this follows Q-style scoring.
 
 ---
 
@@ -86,36 +86,36 @@ Examples:
 
 The user should enter the total points for that turn, not each tile individually.
 
-## Qwirkle Button
+## Q Button
 
-A Qwirkle is worth a bonus.
+A Q is worth a bonus.
 
-In Qwirkle rules, completing a line of 6 scores:
+In Q rules, completing a line of 6 scores:
 
 6 points for the tiles
 + 6 bonus points
 = 12 total points
 
-For this app, implement Qwirkle scoring as an easy button.
+For this app, implement Q scoring as an easy button.
 
 The interface should support:
 
 - Entering normal score manually
-- Adding Qwirkle bonus
-- Making it obvious whether the score entered already includes the Qwirkle total or not
+- Adding Q bonus
+- Making it obvious whether the score entered already includes the Q total or not
 
 Recommended MVP behavior:
 
 Have a button labeled:
 
-Qwirkle +6
+Q +6
 
 When tapped, it adds 6 bonus points to the current turn score.
 
 Example:
 
 User enters 6
-User taps Qwirkle +6
+User taps Q +6
 Current turn total becomes 12
 User taps Enter
 
@@ -123,9 +123,9 @@ This avoids ambiguity.
 
 Also include one convenience button:
 
-12 Qwirkle
+12 Q
 
-This sets the current score to 12 if the player scored a single standard Qwirkle line.
+This sets the current score to 12 if the player scored a single standard Q line.
 
 This allows fast entry.
 
@@ -192,8 +192,8 @@ Purpose: introduce app and begin setup.
 
 Elements:
 
-- App title: Quirkle Companion
-- Short subtitle: Fast scorekeeping for live Quirkle games.
+- App title: Q Companion
+- Short subtitle: Fast scorekeeping for live Q games.
 - Button: Start Game
 
 When clicked, move to Player Count screen.
@@ -303,8 +303,8 @@ Controls area:
 - Enter button
 - Clear button
 - 0 / Reset Hand button
-- Qwirkle +6 button
-- 12 Qwirkle button
+- Q +6 button
+- 12 Q button
 - Last Tile +6 toggle/button
 
 Bottom area:
@@ -356,23 +356,23 @@ Also support physical keyboard input for browser dev:
 Internally track:
 
 currentInputValue
-qwirkleBonusApplied
+qBonusApplied
 lastTileBonusApplied
 currentTurnTotal
 
 Possible simplified model:
 
 baseTurnScore = Number(inputValue || 0)
-qwirkleBonus = qwirkleBonusApplied ? 6 : 0
+qBonus = qBonusApplied ? 6 : 0
 lastTileBonus = lastTileBonusApplied ? 6 : 0
-turnTotal = baseTurnScore + qwirkleBonus + lastTileBonus
+turnTotal = baseTurnScore + qBonus + lastTileBonus
 
 Display should clearly show this.
 
 Example:
 
 Base: 6
-Qwirkle: +6
+Q: +6
 Last Tile: +0
 Turn Total: 12
 
@@ -394,7 +394,7 @@ When the user taps Enter:
    - Move to Results screen.
 6. Otherwise:
    - Clear current turn input.
-   - Clear Qwirkle bonus.
+   - Clear Q bonus.
    - Clear Last Tile flag.
    - Advance to next player.
    - Increment turn counter.
@@ -409,7 +409,7 @@ Each submitted turn should create an object:
   playerId: "p1",
   playerName: "Sam",
   baseScore: 6,
-  qwirkleBonus: 6,
+  qBonus: 6,
   lastTileBonus: 0,
   turnTotal: 12,
   runningTotal: 42,
@@ -471,7 +471,7 @@ CSV should include:
 
 Recommended CSV columns:
 
-Game Date,Turn Number,Round Number,Player Name,Base Score,Qwirkle Bonus,Last Tile Bonus,Turn Total,Running Total,Is Last Tile
+Game Date,Turn Number,Round Number,Player Name,Base Score,Q Bonus,Last Tile Bonus,Turn Total,Running Total,Is Last Tile
 
 Example row:
 
@@ -481,7 +481,7 @@ The file name should include date/time.
 
 Example:
 
-quirkle_scores_2026-05-03_21-44.csv
+q_scores_2026-05-03_21-44.csv
 
 Use browser download behavior:
 
@@ -537,7 +537,7 @@ const state = {
   activePlayerIndex: 0,
   turnNumber: 1,
   inputValue: "",
-  qwirkleBonusApplied: false,
+  qBonusApplied: false,
   lastTileBonusApplied: false,
   gameStartedAt: null,
   gameEndedAt: null,
@@ -720,15 +720,15 @@ For 0/reset hand:
 Tap 0 / Reset Hand
 Tap Enter
 
-For Qwirkle:
+For Q:
 
 Tap 6
-Tap Qwirkle +6
+Tap Q +6
 Tap Enter
 
 or:
 
-Tap 12 Qwirkle
+Tap 12 Q
 Tap Enter
 
 For final play:
@@ -752,8 +752,8 @@ Build these:
 - Numpad score entry
 - Keyboard score entry
 - 0 / Reset Hand button
-- Qwirkle +6 button
-- 12 Qwirkle button
+- Q +6 button
+- 12 Q button
 - Last Tile +6 button
 - Automatic turn advancement
 - Running scoreboard
@@ -836,9 +836,9 @@ Create a README.md explaining:
 
 Basic README instructions:
 
-# Quirkle Companion
+# Q Companion
 
-A simple browser-based scorekeeping app for Quirkle/Qwirkle.
+A simple browser-based scorekeeping app for Q/Q.
 
 ## Run Locally
 
@@ -852,7 +852,7 @@ No build step required.
 - Custom names
 - Player order
 - Turn-by-turn scoring
-- Qwirkle bonus
+- Q bonus
 - Last tile bonus
 - Results
 - CSV export
@@ -894,17 +894,17 @@ After building, verify these scenarios.
    - Sam: 5
    - Alex: 17
 
-## Scenario 2: Qwirkle score
+## Scenario 2: Q score
 
 1. Current player enters 6
-2. Taps Qwirkle +6
+2. Taps Q +6
 3. Turn total displays 12
 4. Taps Enter
 5. Player score increases by 12
 
-## Scenario 3: 12 Qwirkle shortcut
+## Scenario 3: 12 Q shortcut
 
-1. Current player taps 12 Qwirkle
+1. Current player taps 12 Q
 2. Turn total displays 12
 3. Taps Enter
 4. Player score increases by 12
