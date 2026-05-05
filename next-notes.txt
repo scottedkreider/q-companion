@@ -1,0 +1,5 @@
+Deprecated.
+
+This file was temporary task input for an earlier implementation pass.
+Do not add new work here. Use tracked docs such as CODEX_SESSION_NOTES.md,
+README.md, or a new issue/task file instead.

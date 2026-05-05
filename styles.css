@@ -326,7 +326,7 @@ input:focus-visible {
 }
 
 .results-screen {
-  padding-bottom: 96px;
+  padding-bottom: 128px;
 }
 
 .topbar {
@@ -2408,10 +2408,6 @@ input:focus-visible {
   color: #7d5908;
 }
 
-.results-screen {
-  padding-bottom: 88px;
-}
-
 .history-table {
   width: 100%;
   border-collapse: collapse;
@@ -2461,6 +2457,7 @@ input:focus-visible {
 .sticky-actions {
   position: sticky;
   bottom: 12px;
+  z-index: 10;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
@@ -2470,6 +2467,11 @@ input:focus-visible {
   background: rgba(255, 253, 248, 0.94);
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
+}
+
+.results-screen .panel:last-of-type,
+.results-screen .history-maintenance {
+  margin-bottom: 24px;
 }
 
 .sticky-actions.single-action {
