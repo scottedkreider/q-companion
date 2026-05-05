@@ -585,7 +585,6 @@ function renderGame(app, options = {}) {
   bind("[data-action='line-bonus']", "click", toggleLineBonus);
   bind("[data-action='standard-line']", "click", standardLineScore);
   bind("[data-action='last-tile']", "click", toggleLastTileBonus);
-  bind("[data-action='use-score-helper']", "click", useScoreHelper);
   bind("[data-action='cancel-final-turn']", "click", () => setState({ lastTileBonusApplied: false, finalTurnArmed: false }, { skipScoreScroll: true }));
   bind("[data-action='arm-final-turn']", "click", () => setState({ finalTurnArmed: true }, { skipScoreScroll: true }));
   bind("[data-action='submit-final-turn']", "click", submitTurn);
@@ -707,23 +706,7 @@ function renderScoreDisplay() {
       <span class="display-label">Current Turn</span>
       <span class="display-value">${getTurnTotal()}</span>
       ${renderBonusLines()}
-      ${renderScoreHelper()}
     </div>
-  `;
-}
-
-function renderScoreHelper() {
-  return `
-    <details class="score-helper">
-      <summary>Line Helper</summary>
-      <div class="score-helper-grid">
-        <label>Main<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
-        <label>Cross 1<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
-        <label>Cross 2<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
-        <label>Cross 3<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
-      </div>
-      <button class="ghost score-helper-use" type="button" data-action="use-score-helper">Use Total</button>
-    </details>
   `;
 }
 
@@ -1678,17 +1661,6 @@ function standardLineScore() {
 
 function toggleLastTileBonus() {
   setState({ lastTileBonusApplied: !state.lastTileBonusApplied, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
-}
-
-function useScoreHelper() {
-  const lines = Array.from(document.querySelectorAll("[data-helper-line]"))
-    .map((input) => Number(input.value || 0))
-    .filter((value) => Number.isInteger(value) && value > 0)
-    .map((value) => Math.min(value, 6));
-  if (!lines.length) return;
-  const base = lines.reduce((total, value) => total + value, 0);
-  const bonuses = lines.filter((value) => value === 6).length * 6;
-  setState({ inputValue: String(base + bonuses), lineBonusApplied: false, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function armEndGame() {
