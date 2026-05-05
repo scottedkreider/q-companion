@@ -665,7 +665,6 @@ function renderTurnOrderViz() {
         <strong>up now</strong>
       </div>
       ${state.players.map((player, index) => renderTurnSeat(player, index)).join("")}
-      ${state.players.map((player, index) => renderTableScore(player, index)).join("")}
     </div>
   `;
 }
@@ -676,6 +675,7 @@ function renderTurnSeat(player, index) {
     <div class="table-person seat-${index + 1} ${index === state.activePlayerIndex ? "active" : ""} ${index === nextIndex && index !== state.activePlayerIndex ? "next" : ""}">
       <span class="person-icon" aria-hidden="true"></span>
       <strong class="person-label">${escapeHtml(player.name)}</strong>
+      ${renderTableScore(player, index)}
     </div>
   `;
 }
