@@ -6,6 +6,14 @@ Q Companion is a simple browser-based scorekeeping prototype for live tabletop t
 
 Open `index.html` in a browser. There is no build step and no external dependency.
 
+For phone testing, run:
+
+```sh
+npm run phone
+```
+
+That starts a local static server, prints the same-Wi-Fi phone URL, and opens a temporary localtunnel URL. Use `npm run phone:lan` if you only want same-Wi-Fi testing without a public tunnel. Press `Ctrl+C` in that terminal when done.
+
 ## Test
 
 Run:
@@ -21,6 +29,10 @@ Tests cover the pure scoring, ranking, round, winner, and archive snapshot logic
 Branding is centralized in the `BRAND` object at the top of `app.js`. Update that object to change the app name, short mark, subtitle, storage keys, scoring button labels, and reserved disclaimer copy.
 
 The current prototype name is `Q Companion`. A future public release can swap branding without changing each screen by hand.
+
+## Themes
+
+Themes are registered in `BRAND.themes` in `app.js` and applied through `data-theme` on the root HTML element. To add another theme, add its id and label to `BRAND.themes`, then add a matching `[data-theme="theme-id"]` CSS variable block in `styles.css`.
 
 ## Storage
 
@@ -51,7 +63,7 @@ The start screen offers two save modes:
 - Calculator-style numpad
 - Keyboard input
 - Running scoreboard
-- Default and wide scoring layouts
+- Mobile and desktop scoring layouts
 - Recent layout selection remembered
 - Sessionless or Save All Games history mode
 - Saved game history with notes

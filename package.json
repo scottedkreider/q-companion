@@ -1,5 +1,7 @@
 {
   "scripts": {
+    "phone": "node scripts/phone-server.js",
+    "phone:lan": "node scripts/phone-server.js --lan",
     "test": "node tests/core.test.js"
   }
 }

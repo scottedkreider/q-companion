@@ -99,6 +99,11 @@ test("remembered names fill defaults and blank names fall back", () => {
   assert.equal(QC.normalizeName("   ", 1), "Player 2");
 });
 
+test("cabin is the default theme and explicit theme options are preserved", () => {
+  assert.equal(QC.createInitialState().themeMode, "cabin");
+  assert.equal(QC.createInitialState({ themeMode: "default" }).themeMode, "default");
+});
+
 test("scoreboard rounds include open row only for active games", () => {
   let state = makeStartedState(2);
   state = QC.submitTurn({ ...state, inputValue: "4" }, "2026-05-03T20:01:00.000Z");

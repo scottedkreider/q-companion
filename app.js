@@ -7,6 +7,7 @@ const BRAND = {
   storageKey: "q-companion.currentGame.v1",
   playerNamesKey: "q-companion.recentPlayers.v1",
   layoutPreferenceKey: "q-companion.layoutPreference.v1",
+  themePreferenceKey: "q-companion.themePreference.v1",
   saveModePreferenceKey: "q-companion.saveModePreference.v1",
   gameArchiveKey: "q-companion.gameArchive.v1",
   disclaimer:
@@ -19,12 +20,19 @@ const BRAND = {
     lastTile: "Last Tile +6",
   },
   layouts: {
-    default: "Default Layout",
-    wide: "Wide Layout",
+    default: "Mobile Layout",
+    wide: "Desktop Layout",
+  },
+  themes: {
+    default: "Default",
+    cabin: "Cabin",
+    royale: "Royale",
+    toyShop: "Toy Shop",
   },
 };
 
 const PLAYER_COUNTS = [2, 3, 4];
+const DEFAULT_THEME_MODE = "cabin";
 
 const STORAGE_ADAPTER = {
   schemaVersion: 1,
@@ -123,6 +131,33 @@ const LAYOUT_ADAPTER = {
   },
 };
 
+const THEME_ADAPTER = {
+  load() {
+    try {
+      const raw = window.localStorage.getItem(BRAND.themePreferenceKey);
+      const saved = raw ? JSON.parse(raw) : null;
+      return normalizeThemeMode(saved?.themeMode);
+    } catch (error) {
+      console.warn("Could not load theme preference.", error);
+      return DEFAULT_THEME_MODE;
+    }
+  },
+  save(themeMode) {
+    try {
+      window.localStorage.setItem(
+        BRAND.themePreferenceKey,
+        JSON.stringify({
+          schemaVersion: 1,
+          savedAt: new Date().toISOString(),
+          themeMode,
+        })
+      );
+    } catch (error) {
+      console.warn("Could not save theme preference.", error);
+    }
+  },
+};
+
 const SAVE_MODE_ADAPTER = {
   load() {
     try {
@@ -194,6 +229,7 @@ const GAME_ARCHIVE_ADAPTER = {
 const initialState = () =>
   QC.createInitialState({
     layoutMode: LAYOUT_ADAPTER.load(),
+    themeMode: THEME_ADAPTER.load(),
     saveMode: SAVE_MODE_ADAPTER.load(),
   });
 
@@ -245,6 +281,7 @@ function setState(partial) {
 function render() {
   const app = document.getElementById("app");
   if (!app) return;
+  document.documentElement.dataset.theme = normalizeThemeMode(state.themeMode);
   app.className = state.screen === "game" && state.layoutMode === "wide" ? "app-shell app-wide" : "app-shell";
 
   if (state.screen === "start") renderStart(app);
@@ -256,6 +293,7 @@ function render() {
   if (state.screen === "recordGame") renderRecordGame(app);
   if (state.screen === "history") renderHistory(app);
   if (state.screen === "historyDetail") renderHistoryDetail(app);
+  if (state.screen === "editHistoryNotes") renderEditHistoryNotes(app);
 }
 
 function renderStart(app) {
@@ -274,7 +312,10 @@ function renderStart(app) {
         <button class="ghost" data-action="history">Game History</button>
         ${hasSavedProgress ? '<button class="ghost" data-action="new">New Game</button>' : ""}
       </div>
-      ${renderSaveModePicker()}
+      <div class="settings-row">
+        ${renderSaveModePicker()}
+        ${renderThemeMenu()}
+      </div>
       ${BRAND.showDisclaimer ? `<p class="disclaimer">${escapeHtml(BRAND.disclaimer)}</p>` : ""}
     </section>
   `;
@@ -283,6 +324,7 @@ function renderStart(app) {
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "start" }));
   bind("[data-action='new']", "click", startFreshGame);
   bind("[data-save-mode]", "change", (event) => setSaveMode(event.currentTarget.value));
+  bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
 }
 
 function renderSaveModePicker() {
@@ -292,6 +334,20 @@ function renderSaveModePicker() {
       <select id="save-mode" data-save-mode>
         <option value="sessionless" ${state.saveMode === "sessionless" ? "selected" : ""}>Sessionless</option>
         <option value="saveAll" ${state.saveMode === "saveAll" ? "selected" : ""}>Save All Games</option>
+      </select>
+    </div>
+  `;
+}
+
+function renderThemeMenu() {
+  const themeMode = normalizeThemeMode(state.themeMode);
+  return `
+    <div class="theme-menu">
+      <label for="theme-mode">Theme</label>
+      <select id="theme-mode" data-theme-mode>
+        ${Object.entries(BRAND.themes)
+          .map(([value, label]) => `<option value="${escapeAttribute(value)}" ${themeMode === value ? "selected" : ""}>${escapeHtml(label)}</option>`)
+          .join("")}
       </select>
     </div>
   `;
@@ -332,15 +388,18 @@ function renderNames(app) {
         ${state.players
           .map(
             (player, index) => `
-              <div class="field">
+              <div class="field name-field">
                 <label for="player-${index}">Player ${index + 1}</label>
-                <input id="player-${index}" name="player-${index}" value="${escapeAttribute(player.name)}" autocomplete="off">
+                <div class="name-input-wrap">
+                  <input id="player-${index}" name="player-${index}" value="${escapeAttribute(player.name)}" autocomplete="off">
+                  <button class="clear-name-control" type="button" data-clear-name="${index}" aria-label="Clear Player ${index + 1} name">Clear</button>
+                </div>
               </div>
             `
           )
           .join("")}
         <div class="form-actions">
-          <button class="ghost" type="button" data-action="clear-names">Clear Names</button>
+          <button class="ghost" type="button" data-action="back-player-count">Back</button>
           <button class="primary" type="submit">Continue</button>
         </div>
       </form>
@@ -357,7 +416,15 @@ function renderNames(app) {
     rememberPlayerNames(players);
     setState({ players, screen: "order" });
   });
-  bind("[data-action='clear-names']", "click", clearRecentPlayerNames);
+  bind("[data-action='back-player-count']", "click", () => setState({ screen: "playerCount" }));
+  document.querySelectorAll("[data-clear-name]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = document.getElementById(`player-${button.dataset.clearName}`);
+      if (!input) return;
+      input.value = "";
+      input.focus();
+    });
+  });
 }
 
 function renderOrder(app) {
@@ -402,16 +469,13 @@ function renderGame(app) {
   const layoutMode = state.layoutMode === "wide" ? "wide" : "default";
   app.innerHTML = `
     <section class="screen game-screen ${layoutMode === "wide" ? "wide-mode" : ""}">
-      ${renderLayoutMenu(layoutMode)}
+      ${renderGameSettings(layoutMode)}
       ${
         layoutMode === "wide"
           ? `
             <div class="game-layout wide-layout">
               <div class="game-column controls-column">
-                ${renderNumpad()}
-                ${renderQuickControls()}
-                ${renderLastTileButton()}
-                ${renderEndGameButton()}
+                ${renderEntryPad()}
               </div>
               <div class="game-column focus-column">
                 ${renderTurnCard(currentPlayer)}
@@ -425,13 +489,11 @@ function renderGame(app) {
           `
           : `
             ${renderTurnCard(currentPlayer)}
+            ${renderMobileScoreSummary()}
             ${renderScoreDisplay()}
-            ${renderNumpad()}
-            ${renderQuickControls()}
-            ${renderLastTileButton()}
-            ${renderEndGameButton()}
-            ${renderScoreboardPanel()}
+            ${renderEntryPad()}
             ${renderTurnOrderViz()}
+            ${renderScoreboardPanel()}
           `
       }
     </section>
@@ -440,6 +502,7 @@ function renderGame(app) {
   bind("[data-layout-mode]", "change", (event) => {
     setLayoutMode(event.currentTarget.value);
   });
+  bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
   document.querySelectorAll("[data-digit]").forEach((button) => {
     button.addEventListener("click", () => appendDigit(button.dataset.digit));
   });
@@ -455,14 +518,47 @@ function renderGame(app) {
   setTimeout(scrollLiveScoreboardToBottom, 0);
 }
 
-function renderLayoutMenu(layoutMode) {
+function renderGameSettings(layoutMode) {
   return `
-    <div class="layout-menu">
-      <label for="layout-mode">Format</label>
-      <select id="layout-mode" data-layout-mode>
-        <option value="default" ${layoutMode === "default" ? "selected" : ""}>${escapeHtml(BRAND.layouts.default)}</option>
-        <option value="wide" ${layoutMode === "wide" ? "selected" : ""}>${escapeHtml(BRAND.layouts.wide)}</option>
-      </select>
+    <details class="game-settings" data-game-settings ${layoutMode === "wide" ? "open" : ""}>
+      <summary>Options</summary>
+      <div class="settings-row">
+        <div class="layout-menu">
+          <label for="layout-mode">Format</label>
+          <select id="layout-mode" data-layout-mode>
+            <option value="default" ${layoutMode === "default" ? "selected" : ""}>${escapeHtml(BRAND.layouts.default)}</option>
+            <option value="wide" ${layoutMode === "wide" ? "selected" : ""}>${escapeHtml(BRAND.layouts.wide)}</option>
+          </select>
+        </div>
+        ${renderThemeMenu()}
+      </div>
+    </details>
+  `;
+}
+
+function renderMobileScoreSummary() {
+  return `
+    <div class="mobile-score-summary" aria-label="Current player scores">
+      ${state.players
+        .map(
+          (player, index) => `
+            <button class="score-summary-chip ${index === state.activePlayerIndex ? "active" : ""}" type="button" disabled>
+              <span>${escapeHtml(player.name)}</span>
+              <strong>${player.score}</strong>
+            </button>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEntryPad() {
+  return `
+    <div class="entry-pad">
+      ${renderNumpad()}
+      ${renderQuickControls()}
+      ${renderEndGameButton()}
     </div>
   `;
 }
@@ -489,6 +585,7 @@ function renderTurnOrderViz() {
         <strong>up now</strong>
       </div>
       ${state.players.map((player, index) => renderTurnSeat(player, index)).join("")}
+      ${state.players.map((player, index) => renderTableScore(player, index)).join("")}
     </div>
   `;
 }
@@ -498,9 +595,17 @@ function renderTurnSeat(player, index) {
   return `
     <div class="table-person seat-${index + 1} ${index === state.activePlayerIndex ? "active" : ""} ${index === nextIndex && index !== state.activePlayerIndex ? "next" : ""}">
       <span class="person-icon" aria-hidden="true"></span>
-      <strong>${escapeHtml(player.name)}</strong>
-      <span>${player.score}</span>
+      <strong class="person-label">${escapeHtml(player.name)}</strong>
     </div>
+  `;
+}
+
+function renderTableScore(player, index) {
+  const nextIndex = (state.activePlayerIndex + 1) % state.players.length;
+  return `
+    <span class="table-score score-${index + 1} ${index === state.activePlayerIndex ? "active" : ""} ${index === nextIndex && index !== state.activePlayerIndex ? "next" : ""}">
+      ${player.score}
+    </span>
   `;
 }
 
@@ -521,6 +626,7 @@ function renderQuickControls() {
       <div class="bonus-row">
         <button class="bonus-control ${state.lineBonusApplied ? "toggle-active" : "accent"}" data-action="line-bonus">${escapeHtml(BRAND.labels.lineBonus)}</button>
         <button class="bonus-control accent" data-action="standard-line">${escapeHtml(BRAND.labels.standardLine)}</button>
+        ${renderLastTileButton()}
       </div>
     </div>
   `;
@@ -606,15 +712,13 @@ function renderResults(app) {
         ${renderFinalScoresGrid(rankings, assignsWinner)}
         ${renderSavedNotes(savedGame)}
         <div class="button-row">
-          <button class="ghost" data-action="record-game" data-return-screen="results">${state.recordedGameId ? "Edit Saved Notes" : "Save Game"}</button>
-          <button class="ghost" data-action="history">History</button>
-          <button class="ghost" data-action="new">Reset Game</button>
+          <button class="ghost" data-action="record-game" data-return-screen="results">${state.recordedGameId ? "Game Notes" : "Save Game"}</button>
         </div>
       </div>
 
       <div class="sticky-actions" aria-label="Results navigation">
-        <button data-action="history">History</button>
-        <button class="primary" data-action="new">Reset Game</button>
+        <button class="primary icon-button" data-action="new"><span class="button-icon icon-reset" aria-hidden="true"></span><span>New Game</span></button>
+        <button class="ghost icon-button" data-action="history"><span class="button-icon icon-history" aria-hidden="true"></span><span>History</span></button>
       </div>
     </section>
   `;
@@ -657,8 +761,8 @@ function renderRecordGame(app) {
           <button type="button" disabled>Add Photo Later</button>
         </div>
         <div class="button-row">
+          <button class="primary" type="submit">${existingGame ? "Save" : "Save Game"}</button>
           <button class="ghost" type="button" data-action="cancel-record">Cancel</button>
-          <button class="primary" type="submit">${existingGame ? "Update Saved Game" : "Save Game"}</button>
         </div>
       </form>
     </section>
@@ -670,12 +774,10 @@ function renderRecordGame(app) {
 
 function renderHistory(app) {
   const games = GAME_ARCHIVE_ADAPTER.load();
+  const backLabel = getReturnToGameLabel();
   app.innerHTML = `
-    <section class="screen">
+    <section class="screen results-screen">
       ${renderHeader("Game History", "Browse saved games. This does not change the active game.")}
-      <div class="actions">
-        <button class="ghost" data-action="back">Back</button>
-      </div>
       <div class="history-list">
         ${
           games.length
@@ -683,26 +785,30 @@ function renderHistory(app) {
             : '<div class="empty-history">No saved games yet.</div>'
         }
       </div>
+      <div class="sticky-actions single-action" aria-label="History navigation">
+        <button class="primary" data-action="back">${escapeHtml(backLabel)}</button>
+      </div>
     </section>
   `;
 
   bind("[data-action='back']", "click", () => setState({ screen: getHistoryBackScreen(), returnScreen: "start" }));
   document.querySelectorAll("[data-history-id]").forEach((button) => {
     button.addEventListener("click", () => {
-      setState({ screen: "historyDetail", historySelectedId: button.dataset.historyId, deleteHistoryArmedId: null, returnScreen: "history" });
+      setState({ screen: "historyDetail", historySelectedId: button.dataset.historyId, deleteHistoryArmedId: null });
     });
   });
 }
 
 function renderHistoryCard(game) {
   const finalScores = [...game.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  const savedDate = formatCompactDate(game.savedAt);
   return `
     <button class="history-card" data-history-id="${escapeAttribute(game.id)}">
-      <span>
+      <span class="history-card-main">
+        <span class="history-card-date">${escapeHtml(savedDate)}</span>
         <strong>${escapeHtml(game.title)}</strong>
-        <span class="muted">${formatDisplayDate(game.savedAt)} - ${game.players.map((player) => player.name).join(", ")}</span>
       </span>
-      <span class="history-card-score">${finalScores.map((player) => `${escapeHtml(player.name)} ${player.score}`).join(" / ")}</span>
+      <span class="history-card-score">${escapeHtml(formatInitialScores(finalScores))}</span>
     </button>
   `;
 }
@@ -721,6 +827,7 @@ function renderHistoryDetail(app) {
   }
 
   const rankings = [...game.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  const backLabel = getReturnToGameLabel();
   app.innerHTML = `
     <section class="screen results-screen">
       ${renderHeader(game.title, "Saved game snapshot. Your active game is unchanged.")}
@@ -735,6 +842,9 @@ function renderHistoryDetail(app) {
           <strong>Photo</strong>
           <p class="muted">No photo attached. Upload is reserved for a later storage pass.</p>
         </div>
+        <div class="button-row">
+          <button class="ghost" data-action="edit-history-notes">Edit Notes</button>
+        </div>
         ${renderHistoryDeleteControls(game)}
       </div>
       <div class="panel stack">
@@ -745,17 +855,52 @@ function renderHistoryDetail(app) {
         <h2 class="section-title">Score Sheet</h2>
         ${renderArchivedScoreSheet(game)}
       </div>
-      <div class="sticky-actions photo-actions" aria-label="Saved game photo">
-        <button class="ghost" disabled>Upload Photo Later</button>
-        <button class="primary" disabled>Photo Placeholder</button>
+      <div class="sticky-actions" aria-label="Saved game navigation">
+        <button class="ghost" data-action="history">Back to History</button>
+        <button class="primary" data-action="return-to-game">${escapeHtml(backLabel)}</button>
       </div>
     </section>
   `;
 
   bind("[data-action='history']", "click", () => setState({ screen: "history", historySelectedId: null }));
+  bind("[data-action='return-to-game']", "click", () => setState({ screen: getHistoryBackScreen(), historySelectedId: null, deleteHistoryArmedId: null }));
+  bind("[data-action='edit-history-notes']", "click", () => setState({ screen: "editHistoryNotes", historySelectedId: game.id, deleteHistoryArmedId: null }));
   bind("[data-action='arm-delete-history']", "click", () => setState({ deleteHistoryArmedId: game.id }));
   bind("[data-action='cancel-delete-history']", "click", () => setState({ deleteHistoryArmedId: null }));
   bind("[data-action='confirm-delete-history']", "click", () => deleteHistoryGame(game.id));
+}
+
+function renderEditHistoryNotes(app) {
+  const game = GAME_ARCHIVE_ADAPTER.find(state.historySelectedId);
+  if (!game) {
+    app.innerHTML = `
+      <section class="screen">
+        ${renderHeader("Saved Game", "That saved game could not be found.")}
+        <button class="primary" data-action="history">Back to History</button>
+      </section>
+    `;
+    bind("[data-action='history']", "click", () => setState({ screen: "history", historySelectedId: null }));
+    return;
+  }
+
+  app.innerHTML = `
+    <section class="screen">
+      ${renderHeader("Edit Notes", game.title)}
+      <form class="panel stack" data-form="history-notes">
+        <div class="field">
+          <label for="history-notes">Notes</label>
+          <textarea id="history-notes" name="notes" rows="7" placeholder="Who played, where it happened, weird table moments, anything worth remembering.">${escapeHtml(game.notes || "")}</textarea>
+        </div>
+        <div class="button-row">
+          <button class="primary" type="submit">Update Notes</button>
+          <button class="ghost" type="button" data-action="cancel-history-notes">Cancel</button>
+        </div>
+      </form>
+    </section>
+  `;
+
+  bind("[data-form='history-notes']", "submit", saveHistoryNotes);
+  bind("[data-action='cancel-history-notes']", "click", () => setState({ screen: "historyDetail" }));
 }
 
 function renderHistoryDeleteControls(game) {
@@ -1004,23 +1149,24 @@ function makeDefaultPlayers(count) {
   return QC.makeDefaultPlayers(count, rememberedNames);
 }
 
-function makeFallbackPlayers(count) {
-  return QC.makeDefaultPlayers(count);
-}
-
 function rememberPlayerNames(players) {
   PLAYER_NAMES_ADAPTER.save(players.map((player) => player.name));
-}
-
-function clearRecentPlayerNames() {
-  PLAYER_NAMES_ADAPTER.clear();
-  setState({ players: makeFallbackPlayers(state.playerCount) });
 }
 
 function setLayoutMode(layoutMode) {
   const nextLayout = layoutMode === "wide" ? "wide" : "default";
   LAYOUT_ADAPTER.save(nextLayout);
   setState({ layoutMode: nextLayout });
+}
+
+function setThemeMode(themeMode) {
+  const nextTheme = normalizeThemeMode(themeMode);
+  THEME_ADAPTER.save(nextTheme);
+  setState({ themeMode: nextTheme });
+}
+
+function normalizeThemeMode(themeMode) {
+  return Object.prototype.hasOwnProperty.call(BRAND.themes, themeMode) ? themeMode : DEFAULT_THEME_MODE;
 }
 
 function setSaveMode(saveMode) {
@@ -1033,6 +1179,12 @@ function getHistoryBackScreen() {
   if (state.returnScreen === "results" && state.gameOver) return "results";
   if (state.returnScreen === "game" && state.gameStartedAt && !state.gameOver) return "game";
   return "start";
+}
+
+function getReturnToGameLabel() {
+  const screen = getHistoryBackScreen();
+  if (screen === "start") return "Start Screen";
+  return "Return to Game";
 }
 
 function openRecordGame(returnScreen) {
@@ -1050,6 +1202,16 @@ function saveRecordedGame(event) {
   setState({ recordedGameId: savedGame.id, screen: state.returnScreen || "results" });
 }
 
+function saveHistoryNotes(event) {
+  event.preventDefault();
+  const game = GAME_ARCHIVE_ADAPTER.find(state.historySelectedId);
+  if (!game) return;
+  const form = new FormData(event.currentTarget);
+  const notes = String(form.get("notes") || "").trim();
+  GAME_ARCHIVE_ADAPTER.upsert({ ...game, notes });
+  setState({ screen: "historyDetail" });
+}
+
 function autoSaveCompletedGame() {
   if (!state.gameOver || state.recordedGameId || !state.players.length) return;
   const savedGame = makeGameSnapshot({ title: makeGameTitle(state), notes: "" });
@@ -1064,9 +1226,11 @@ function makeGameSnapshot({ title, notes }) {
 }
 
 function makeGameTitle(gameState) {
-  const date = formatDisplayDate(gameState.gameStartedAt || new Date().toISOString());
-  const names = gameState.players.map((player) => player.name).join(", ");
-  return names ? `${date} - ${names}` : `${date} Game`;
+  const date = formatCompactDate(gameState.gameStartedAt || new Date().toISOString());
+  const initials = formatPlayerInitials(gameState.players);
+  const winner = getDefaultTitleWinner(gameState);
+  const titleBase = initials ? `${date} ${initials}` : `${date} Game`;
+  return winner ? `${titleBase} - ${winner} Wins` : titleBase;
 }
 
 function normalizeName(value, index) {
@@ -1259,6 +1423,34 @@ function formatDisplayDate(value) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatCompactDate(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return "Saved Game";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year} ${month} ${day}`;
+}
+
+function formatPlayerInitials(players) {
+  return players.map((player) => getPlayerInitial(player.name)).join("");
+}
+
+function formatInitialScores(players) {
+  return players.map((player) => `${getPlayerInitial(player.name)} ${player.score}`).join(" / ");
+}
+
+function getDefaultTitleWinner(gameState) {
+  if (!QC.doesAssignWinner(gameState) || !gameState.players.length) return "";
+  const winner = QC.getRankings(gameState.players)[0];
+  return winner ? getPlayerInitial(winner.name) : "";
+}
+
+function getPlayerInitial(name) {
+  const trimmed = String(name || "").trim();
+  return (trimmed[0] || "?").toUpperCase();
 }
 
 function scrollToFinalScores() {

@@ -28,6 +28,7 @@
       deleteHistoryArmedId: null,
       returnScreen: "start",
       layoutMode: options.layoutMode || "default",
+      themeMode: options.themeMode || "cabin",
       saveMode: options.saveMode || "sessionless",
       orderSelectedIndex: null,
     };
