@@ -317,7 +317,6 @@ function render(options = {}) {
 function renderStart(app) {
   const hasSavedProgress = state.players.length > 0 || state.turnHistory.length > 0;
   const menuReturnScreen = getMenuReturnScreen();
-  const startLabel = menuReturnScreen ? getMenuReturnLabel(menuReturnScreen) : hasSavedProgress ? "Continue Setup" : "Start Game";
   app.innerHTML = `
     <section class="screen center-screen">
       <div class="brand-lockup">
@@ -328,9 +327,9 @@ function renderStart(app) {
         </div>
       </div>
       <div class="actions">
-        <button class="primary" data-action="start">${escapeHtml(startLabel)}</button>
+        ${menuReturnScreen ? `<button class="primary" data-action="return-last">${escapeHtml(getMenuReturnLabel(menuReturnScreen))}</button>` : `<button class="primary" data-action="start">${hasSavedProgress ? "Continue Setup" : "Start Game"}</button>`}
+        ${hasSavedProgress ? `<button class="ghost" data-action="new">${menuReturnScreen ? "Start New Game" : "New Game"}</button>` : ""}
         <button class="ghost" data-action="history">Game History</button>
-        ${hasSavedProgress ? '<button class="ghost" data-action="new">New Game</button>' : ""}
       </div>
       <div class="settings-row">
         ${renderSaveModePicker()}
@@ -341,6 +340,7 @@ function renderStart(app) {
   `;
 
   bind("[data-action='start']", "click", resumeFromStart);
+  bind("[data-action='return-last']", "click", resumeFromStart);
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "start" }));
   bind("[data-action='new']", "click", startFreshGame);
   bind("[data-save-mode]", "change", (event) => setSaveMode(event.currentTarget.value));
@@ -514,6 +514,7 @@ function renderGame(app, options = {}) {
   const layoutMode = state.layoutMode === "wide" ? "wide" : "default";
   app.innerHTML = `
     <section class="screen game-screen ${layoutMode === "wide" ? "wide-mode" : ""}">
+      ${renderHeader("Score Game", `${currentPlayer.name} up now`)}
       ${renderGameSettings(layoutMode)}
       ${
         layoutMode === "wide"
@@ -570,7 +571,7 @@ function renderGame(app, options = {}) {
   if (!options.skipScoreScroll) {
     setTimeout(scrollLiveScoreboardToBottom, 0);
   } else if (options.scoreScrollTop !== null) {
-    setTimeout(() => restoreLiveScoreboardScroll(options.scoreScrollTop), 0);
+    restoreLiveScoreboardScroll(options.scoreScrollTop);
   }
 }
 
@@ -803,6 +804,7 @@ function renderResults(app) {
   bind("[data-action='edit-final-title']", "click", () => setState({ editingFinalTitle: true }));
   bind("[data-action='cancel-final-title']", "click", () => setState({ editingFinalTitle: false }));
   bindScoreEditing();
+  setTimeout(scrollScoreSheetsToBottom, 0);
 }
 
 function renderFinalTitleEditor() {
@@ -967,6 +969,7 @@ function renderHistoryDetail(app) {
   bind("[data-action='arm-delete-history']", "click", () => setState({ deleteHistoryArmedId: game.id }));
   bind("[data-action='cancel-delete-history']", "click", () => setState({ deleteHistoryArmedId: null }));
   bind("[data-action='confirm-delete-history']", "click", () => deleteHistoryGame(game.id));
+  setTimeout(scrollScoreSheetsToBottom, 0);
 }
 
 function renderEditHistoryNotes(app) {
@@ -1077,7 +1080,7 @@ function renderScoreSheet() {
   }
 
   return `
-    ${renderScoreboardGrid({ includeOpenRow: false, editable: false })}
+    ${renderScoreboardGrid({ includeOpenRow: false, editable: false, id: "final-score-sheet" })}
     ${hasEditedScores(state.turnHistory) ? '<p class="edited-legend">* edited score</p>' : ""}
     ${renderTotalsGrid(state.players)}
   `;
@@ -1090,7 +1093,7 @@ function renderArchivedScoreSheet(game) {
 
   const rounds = getArchivedRounds(game);
   return `
-    <div class="score-paper rounds-paper" role="region" aria-label="Saved score sheet">
+    <div class="score-paper rounds-paper" data-score-rounds role="region" aria-label="Saved score sheet">
       <table class="score-paper-table">
         <thead>
           <tr>
@@ -1150,10 +1153,11 @@ function getArchivedPreviousRunningTotal(game, turn) {
 function renderScoreboardGrid(options = {}) {
   const includeOpenRow = Boolean(options.includeOpenRow);
   const editable = options.editable !== false && !state.gameOver;
+  const scoreSheetId = options.id ? ` id="${escapeAttribute(options.id)}"` : "";
   const rounds = getScoreboardRounds(includeOpenRow);
 
   return `
-    <div class="score-paper rounds-paper" data-score-rounds role="region" aria-label="Paper-style scoreboard">
+    <div class="score-paper rounds-paper"${scoreSheetId} data-score-rounds role="region" aria-label="Paper-style scoreboard">
       <table class="score-paper-table">
         <thead>
           <tr>
@@ -1692,6 +1696,12 @@ function scrollToFinalScores() {
 function scrollLiveScoreboardToBottom() {
   const scoreSheet = document.querySelector("[data-score-rounds]");
   if (scoreSheet) scoreSheet.scrollTop = scoreSheet.scrollHeight;
+}
+
+function scrollScoreSheetsToBottom() {
+  document.querySelectorAll("[data-score-rounds]").forEach((scoreSheet) => {
+    scoreSheet.scrollTop = scoreSheet.scrollHeight;
+  });
 }
 
 function getLiveScoreboardScrollTop() {

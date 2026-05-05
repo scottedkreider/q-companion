@@ -325,6 +325,10 @@ input:focus-visible {
   justify-content: center;
 }
 
+.results-screen {
+  padding-bottom: 96px;
+}
+
 .topbar {
   display: flex;
   align-items: flex-start;
@@ -412,9 +416,9 @@ input:focus-visible {
 }
 
 .settings-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  justify-content: stretch;
   gap: 8px;
   padding: 6px;
   border-radius: var(--radius);
@@ -461,8 +465,9 @@ input:focus-visible {
 .theme-menu {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .save-mode label,
@@ -476,7 +481,9 @@ input:focus-visible {
 .save-mode select,
 .layout-menu select,
 .theme-menu select {
+  min-width: 0;
   min-height: 42px;
+  flex: 1 1 auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-strong);
@@ -1312,17 +1319,17 @@ input:focus-visible {
 }
 
 .player-count-3 .seat-2 {
-  left: 18%;
-  top: 75%;
-}
-
-.player-count-3 .seat-3 {
   left: 82%;
   top: 75%;
 }
 
+.player-count-3 .seat-3 {
+  left: 18%;
+  top: 75%;
+}
+
 .player-count-4 .seat-2 {
-  left: 14%;
+  left: 86%;
   top: 52%;
 }
 
@@ -1332,7 +1339,7 @@ input:focus-visible {
 }
 
 .player-count-4 .seat-4 {
-  left: 86%;
+  left: 14%;
   top: 52%;
 }
 
@@ -1353,17 +1360,17 @@ input:focus-visible {
 }
 
 .player-count-3 .score-2 {
-  left: 32%;
-  top: 66%;
-}
-
-.player-count-3 .score-3 {
   left: 68%;
   top: 66%;
 }
 
-.player-count-4 .score-2 {
+.player-count-3 .score-3 {
   left: 32%;
+  top: 66%;
+}
+
+.player-count-4 .score-2 {
+  left: 68%;
   top: 50%;
 }
 
@@ -1373,7 +1380,7 @@ input:focus-visible {
 }
 
 .player-count-4 .score-4 {
-  left: 68%;
+  left: 32%;
   top: 50%;
 }
 
@@ -2034,10 +2041,13 @@ input:focus-visible {
   width: 58px;
 }
 
-.score-paper-table th {
+.score-paper-table thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
+}
+
+.score-paper-table th {
   background: var(--score-header-bg);
   color: var(--muted);
   font-size: 0.82rem;
@@ -2546,14 +2556,12 @@ input:focus-visible {
   }
 
   .game-settings .settings-row {
-    justify-content: stretch;
     padding: 8px;
     border-top: 1px solid var(--line);
   }
 
   .game-settings .layout-menu,
   .game-settings .theme-menu {
-    flex: 1 1 150px;
     justify-content: space-between;
   }
 
@@ -2787,7 +2795,7 @@ input:focus-visible {
   }
 
   .wide-mode .game-settings .settings-row {
-    display: flex;
+    display: grid;
   }
 
   .wide-layout {
@@ -2976,21 +2984,21 @@ input:focus-visible {
   }
 
   .wide-mode .player-count-3 .seat-2 {
-    left: 14%;
-    top: 76%;
-  }
-
-  .wide-mode .player-count-3 .seat-3 {
     left: 86%;
     top: 76%;
   }
 
+  .wide-mode .player-count-3 .seat-3 {
+    left: 14%;
+    top: 76%;
+  }
+
   .wide-mode .player-count-4 .seat-2 {
-    left: 11%;
+    left: 89%;
   }
 
   .wide-mode .player-count-4 .seat-4 {
-    left: 89%;
+    left: 11%;
   }
 
   .wide-mode .player-count-2 .score-1 {
