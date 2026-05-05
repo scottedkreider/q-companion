@@ -769,6 +769,52 @@ input:focus-visible {
   min-height: 40px;
 }
 
+.score-helper {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(31, 111, 100, 0.2);
+}
+
+.score-helper summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.score-helper-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.score-helper-grid label {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.score-helper-grid input {
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 850;
+  text-align: center;
+}
+
+.score-helper-use {
+  min-height: 34px;
+  font-size: 0.82rem;
+}
+
 .reset-control {
   width: 100%;
 }
@@ -818,6 +864,11 @@ input:focus-visible {
 
 .history-delete-confirm {
   justify-self: stretch;
+}
+
+.start-game-confirm,
+.final-turn-confirm {
+  border-color: rgba(183, 92, 69, 0.42);
 }
 
 .end-game-confirm {

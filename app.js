@@ -16,7 +16,7 @@ const BRAND = {
   labels: {
     lineBonus: "+6",
     standardLine: "+12",
-    resetHand: "0 / Reset Hand",
+    resetHand: "0 / Pass",
     lastTile: "Last Tile +6",
   },
   layouts: {
@@ -315,8 +315,8 @@ function render(options = {}) {
 }
 
 function renderStart(app) {
-  const hasSavedProgress = state.players.length > 0 || state.turnHistory.length > 0;
   const menuReturnScreen = getMenuReturnScreen();
+  const hasActiveGame = hasGameInProgress();
   app.innerHTML = `
     <section class="screen center-screen">
       <div class="brand-lockup">
@@ -327,8 +327,9 @@ function renderStart(app) {
         </div>
       </div>
       <div class="actions">
-        ${menuReturnScreen ? `<button class="primary" data-action="return-last">${escapeHtml(getMenuReturnLabel(menuReturnScreen))}</button>` : `<button class="primary" data-action="start">${hasSavedProgress ? "Continue Setup" : "Start Game"}</button>`}
-        ${hasSavedProgress ? `<button class="ghost" data-action="new">${menuReturnScreen ? "Start New Game" : "New Game"}</button>` : ""}
+        <button class="primary" data-action="start">Start Game</button>
+        ${state.startGameArmed && hasActiveGame ? renderStartGameConfirm() : ""}
+        ${menuReturnScreen ? `<button class="ghost" data-action="return-last">${escapeHtml(getMenuReturnLabel(menuReturnScreen))}</button>` : ""}
         <button class="ghost" data-action="history">Game History</button>
       </div>
       <div class="settings-row">
@@ -339,12 +340,23 @@ function renderStart(app) {
     </section>
   `;
 
-  bind("[data-action='start']", "click", resumeFromStart);
+  bind("[data-action='start']", "click", startGameFromStartScreen);
   bind("[data-action='return-last']", "click", resumeFromStart);
+  bind("[data-action='cancel-start-game']", "click", () => setState({ startGameArmed: false }));
+  bind("[data-action='confirm-start-game']", "click", beginNewGameSetup);
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "start" }));
   bind("[data-action='new']", "click", startFreshGame);
   bind("[data-save-mode]", "change", (event) => setSaveMode(event.currentTarget.value));
   bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
+}
+
+function renderStartGameConfirm() {
+  return `
+    <div class="end-game-confirm start-game-confirm">
+      <button class="ghost" data-action="cancel-start-game">Keep Playing</button>
+      <button class="danger" data-action="confirm-start-game">End & Start</button>
+    </div>
+  `;
 }
 
 function renderSaveModePicker() {
@@ -383,7 +395,20 @@ function nextStartScreen() {
 
 function resumeFromStart() {
   const menuReturnScreen = getMenuReturnScreen();
-  setState({ screen: menuReturnScreen || nextStartScreen(), menuReturnScreen: null });
+  setState({ screen: menuReturnScreen || nextStartScreen(), menuReturnScreen: null, startGameArmed: false });
+}
+
+function startGameFromStartScreen() {
+  if (hasGameInProgress()) {
+    setState({ startGameArmed: true });
+    return;
+  }
+
+  beginNewGameSetup();
+}
+
+function hasGameInProgress() {
+  return Boolean(state.gameStartedAt && !state.gameOver);
 }
 
 function getMenuReturnScreen() {
@@ -560,6 +585,10 @@ function renderGame(app, options = {}) {
   bind("[data-action='line-bonus']", "click", toggleLineBonus);
   bind("[data-action='standard-line']", "click", standardLineScore);
   bind("[data-action='last-tile']", "click", toggleLastTileBonus);
+  bind("[data-action='use-score-helper']", "click", useScoreHelper);
+  bind("[data-action='cancel-final-turn']", "click", () => setState({ lastTileBonusApplied: false, finalTurnArmed: false }, { skipScoreScroll: true }));
+  bind("[data-action='arm-final-turn']", "click", () => setState({ finalTurnArmed: true }, { skipScoreScroll: true }));
+  bind("[data-action='submit-final-turn']", "click", submitTurn);
   bind("[data-action='arm-end-game']", "click", armEndGame);
   bind("[data-action='cancel-end-game']", "click", cancelEndGame);
   bind("[data-action='confirm-end-game']", "click", endGameManually);
@@ -678,7 +707,23 @@ function renderScoreDisplay() {
       <span class="display-label">Current Turn</span>
       <span class="display-value">${getTurnTotal()}</span>
       ${renderBonusLines()}
+      ${renderScoreHelper()}
     </div>
+  `;
+}
+
+function renderScoreHelper() {
+  return `
+    <details class="score-helper">
+      <summary>Line Helper</summary>
+      <div class="score-helper-grid">
+        <label>Main<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
+        <label>Cross 1<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
+        <label>Cross 2<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
+        <label>Cross 3<input type="number" min="0" max="6" inputmode="numeric" data-helper-line value=""></label>
+      </div>
+      <button class="ghost score-helper-use" type="button" data-action="use-score-helper">Use Total</button>
+    </details>
   `;
 }
 
@@ -691,7 +736,26 @@ function renderQuickControls() {
         <button class="bonus-control accent" data-action="standard-line">${escapeHtml(BRAND.labels.standardLine)}</button>
         ${renderLastTileButton()}
       </div>
+      ${renderFinalTurnConfirm()}
       <button class="ghost undo-control" data-action="undo-last" ${state.turnHistory.length ? "" : "disabled"}>Undo Last Entry</button>
+    </div>
+  `;
+}
+
+function renderFinalTurnConfirm() {
+  if (!state.lastTileBonusApplied) return "";
+  if (state.finalTurnArmed) {
+    return `
+      <div class="end-game-confirm final-turn-confirm">
+        <button class="ghost" data-action="cancel-final-turn">Keep Scoring</button>
+        <button class="danger" data-action="submit-final-turn">Submit Final Turn</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="end-game-confirm final-turn-confirm">
+      <button class="ghost" data-action="cancel-final-turn">Keep Scoring</button>
+      <button class="danger" data-action="arm-final-turn">Final Turn</button>
     </div>
   `;
 }
@@ -780,6 +844,7 @@ function renderResults(app) {
 
       <div id="final-scores" class="panel stack">
         <h2 class="screen-title">Final Scores</h2>
+        ${renderGameSummary(rankings)}
         ${!assignsWinner ? '<p class="muted">Game ended manually. No winner assigned.</p>' : ""}
         ${state.saveMode === "saveAll" ? '<p class="muted">Save All Games is on. This game will be kept in Game History.</p>' : ""}
         ${renderFinalScoresGrid(rankings, assignsWinner)}
@@ -805,6 +870,21 @@ function renderResults(app) {
   bind("[data-action='cancel-final-title']", "click", () => setState({ editingFinalTitle: false }));
   bindScoreEditing();
   setTimeout(scrollScoreSheetsToBottom, 0);
+}
+
+function renderGameSummary(rankings) {
+  const rounds = Math.max(...state.turnHistory.map((turn) => turn.roundNumber), 0);
+  const topScore = rankings[0]?.score ?? 0;
+  const secondScore = rankings[1]?.score ?? topScore;
+  const highTurn = state.turnHistory.reduce((best, turn) => (turn.turnTotal > (best?.turnTotal || 0) ? turn : best), null);
+  return `
+    <div class="detail-meta game-summary">
+      <span>${state.turnHistory.length} turns</span>
+      <span>${rounds} rounds</span>
+      <span>Spread ${Math.max(0, topScore - secondScore)}</span>
+      ${highTurn ? `<span>High turn ${highTurn.turnTotal}</span>` : ""}
+    </div>
+  `;
 }
 
 function renderFinalTitleEditor() {
@@ -876,6 +956,7 @@ function renderRecordGame(app) {
 function renderHistory(app) {
   const games = GAME_ARCHIVE_ADAPTER.load();
   const backLabel = getReturnToGameLabel();
+  const hasActiveGame = hasGameInProgress();
   app.innerHTML = `
     <section class="screen results-screen">
       ${renderHeader("Game History", "Browse saved games. This does not change the active game.")}
@@ -886,13 +967,15 @@ function renderHistory(app) {
             : '<div class="empty-history">No saved games yet.</div>'
         }
       </div>
-      <div class="sticky-actions single-action" aria-label="History navigation">
-        <button class="primary" data-action="back">${escapeHtml(backLabel)}</button>
+      <div class="sticky-actions ${hasActiveGame ? "" : "single-action"}" aria-label="History navigation">
+        ${hasActiveGame ? '<button class="ghost" data-action="start-screen">Start Screen</button>' : ""}
+        <button class="primary" data-action="back">${escapeHtml(hasActiveGame ? "Return to Game" : backLabel)}</button>
       </div>
     </section>
   `;
 
-  bind("[data-action='back']", "click", () => setState({ screen: getHistoryBackScreen(), returnScreen: "start" }));
+  bind("[data-action='back']", "click", () => setState({ screen: hasActiveGame ? "game" : getHistoryBackScreen(), returnScreen: "start" }));
+  bind("[data-action='start-screen']", "click", () => setState({ screen: "start", returnScreen: "start" }));
   document.querySelectorAll("[data-history-id]").forEach((button) => {
     button.addEventListener("click", () => {
       setState({ screen: "historyDetail", historySelectedId: button.dataset.historyId, deleteHistoryArmedId: null });
@@ -1536,6 +1619,7 @@ function startPlay() {
     inputValue: "",
     lineBonusApplied: false,
     lastTileBonusApplied: false,
+    finalTurnArmed: false,
     gameStartedAt: new Date().toISOString(),
     gameEndedAt: null,
     turnHistory: [],
@@ -1543,6 +1627,7 @@ function startPlay() {
     gameOver: false,
     gameEndReason: null,
     endGameArmed: false,
+    startGameArmed: false,
     recordedGameId: null,
     finalGameTitle: "",
     editingFinalTitle: false,
@@ -1559,33 +1644,51 @@ function startFreshGame() {
   render();
 }
 
+function beginNewGameSetup() {
+  state = { ...initialState(), screen: "playerCount" };
+  STORAGE_ADAPTER.clear();
+  persist();
+  render();
+}
+
 function appendDigit(digit) {
   const nextValue = state.inputValue === "0" ? digit : `${state.inputValue}${digit}`;
-  setState({ inputValue: nextValue.replace(/^0+(?=\d)/, ""), endGameArmed: false }, { skipScoreScroll: true });
+  setState({ inputValue: nextValue.replace(/^0+(?=\d)/, ""), endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function backspaceInput() {
-  setState({ inputValue: state.inputValue.slice(0, -1), endGameArmed: false }, { skipScoreScroll: true });
+  setState({ inputValue: state.inputValue.slice(0, -1), endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function clearInput() {
-  setState({ inputValue: "", endGameArmed: false }, { skipScoreScroll: true });
+  setState({ inputValue: "", endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function resetHand() {
-  setState({ inputValue: "0", lineBonusApplied: false, endGameArmed: false }, { skipScoreScroll: true });
+  setState({ inputValue: "0", lineBonusApplied: false, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function toggleLineBonus() {
-  setState({ lineBonusApplied: !state.lineBonusApplied, endGameArmed: false }, { skipScoreScroll: true });
+  setState({ lineBonusApplied: !state.lineBonusApplied, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function standardLineScore() {
-  setState({ inputValue: "12", lineBonusApplied: false, endGameArmed: false }, { skipScoreScroll: true });
+  setState({ inputValue: "12", lineBonusApplied: false, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function toggleLastTileBonus() {
-  setState({ lastTileBonusApplied: !state.lastTileBonusApplied, endGameArmed: false }, { skipScoreScroll: true });
+  setState({ lastTileBonusApplied: !state.lastTileBonusApplied, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
+}
+
+function useScoreHelper() {
+  const lines = Array.from(document.querySelectorAll("[data-helper-line]"))
+    .map((input) => Number(input.value || 0))
+    .filter((value) => Number.isInteger(value) && value > 0)
+    .map((value) => Math.min(value, 6));
+  if (!lines.length) return;
+  const base = lines.reduce((total, value) => total + value, 0);
+  const bonuses = lines.filter((value) => value === 6).length * 6;
+  setState({ inputValue: String(base + bonuses), lineBonusApplied: false, endGameArmed: false, finalTurnArmed: false }, { skipScoreScroll: true });
 }
 
 function armEndGame() {
@@ -1602,7 +1705,9 @@ function endGameManually() {
     inputValue: "",
     lineBonusApplied: false,
     lastTileBonusApplied: false,
+    finalTurnArmed: false,
     endGameArmed: false,
+    startGameArmed: false,
     gameOver: true,
     gameEndReason: "manual",
     gameEndedAt: new Date().toISOString(),
@@ -1613,6 +1718,10 @@ function endGameManually() {
 }
 
 function submitTurn() {
+  if (state.lastTileBonusApplied && !state.finalTurnArmed) {
+    setState({ finalTurnArmed: true }, { skipScoreScroll: true });
+    return;
+  }
   state = QC.submitTurn(state, new Date().toISOString());
   persist();
   render();
