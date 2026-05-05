@@ -180,10 +180,12 @@ button {
   font-weight: 750;
   box-shadow: inset 0 0 0 1px var(--line);
   touch-action: manipulation;
+  transition: transform 80ms ease, filter 80ms ease, box-shadow 80ms ease;
 }
 
 button:active {
-  transform: translateY(1px);
+  filter: brightness(0.97);
+  transform: translateY(1px) scale(0.98);
 }
 
 button:disabled {
@@ -411,7 +413,8 @@ input:focus-visible {
 
 .save-mode,
 .layout-menu,
-.theme-menu {
+.theme-menu,
+.haptics-toggle {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -420,10 +423,26 @@ input:focus-visible {
 
 .save-mode label,
 .layout-menu label,
-.theme-menu label {
+.theme-menu label,
+.haptics-toggle {
   color: var(--settings-label);
   font-size: 0.9rem;
   font-weight: 750;
+}
+
+.haptics-toggle {
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  cursor: pointer;
+}
+
+.haptics-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
 }
 
 .save-mode select,
@@ -577,6 +596,11 @@ input:focus-visible {
   color: #fff9ea;
 }
 
+[data-theme] .brand-button {
+  background: var(--primary);
+  color: #fffaf1;
+}
+
 .toggle-active {
   background: var(--primary);
   color: #fffaf1;
@@ -615,6 +639,11 @@ input:focus-visible {
 
 .reset-control {
   width: 100%;
+}
+
+.undo-control {
+  width: 100%;
+  min-height: 40px;
 }
 
 .end-game-control {
@@ -881,6 +910,18 @@ input:focus-visible {
 
 .mobile-score-summary {
   display: none;
+}
+
+.pending-score {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 4px 2px;
+  border-radius: 999px;
+  background: rgba(255, 250, 241, 0.22);
+  color: inherit;
+  font-size: 0.72em;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .table-map {
@@ -1305,6 +1346,20 @@ input:focus-visible {
   background: rgba(216, 169, 40, 0.16);
 }
 
+[data-theme="royale"] .topbar .screen-title,
+[data-theme="royale"] .brand-title,
+[data-theme="royale"] .topbar .subtitle,
+[data-theme="royale"] .center-screen .subtitle {
+  color: #fff7d8;
+  text-shadow: 1px 2px 0 rgba(10, 28, 32, 0.5);
+}
+
+[data-theme="royale"] .game-settings summary,
+[data-theme="royale"] .game-settings summary::after {
+  color: #fff7d8;
+  text-shadow: 1px 1px 0 rgba(10, 28, 32, 0.45);
+}
+
 [data-theme="toyShop"] .panel,
 [data-theme="toyShop"] .entry-pad,
 [data-theme="toyShop"] .turn-card,
@@ -1314,6 +1369,13 @@ input:focus-visible {
 [data-theme="toyShop"] .history-list {
   border: 2px solid #111111;
   box-shadow: var(--shadow);
+}
+
+.brand-button {
+  min-height: 54px;
+  border: 0;
+  padding: 0;
+  flex: 0 0 auto;
 }
 
 [data-theme="toyShop"] .panel,
@@ -1415,6 +1477,20 @@ input:focus-visible {
   background-color: transparent;
 }
 
+.score-edit-button {
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.score-edit-button:hover {
+  background: rgba(31, 111, 100, 0.08);
+}
+
 .score-paper-table th:first-child,
 .score-paper-table td:first-child {
   min-width: 58px;
@@ -1511,6 +1587,24 @@ input:focus-visible {
   align-content: center;
   gap: 1px;
   font-family: "Segoe Print", "Comic Sans MS", cursive;
+}
+
+.edited-mark {
+  position: absolute;
+  top: 0;
+  right: 8%;
+  color: var(--danger-strong);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.edited-legend {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
 }
 
 .paper-crossout {
@@ -1655,6 +1749,36 @@ input:focus-visible {
   grid-template-columns: 1fr;
 }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(18, 19, 18, 0.48);
+}
+
+.edit-score-dialog {
+  display: grid;
+  width: min(100%, 360px);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.final-title-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+}
+
 .empty-history {
   padding: 16px;
   border: 1px dashed var(--line);
@@ -1667,6 +1791,17 @@ input:focus-visible {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+
+  button:active {
+    filter: none;
+    transform: none;
+  }
 }
 
 @media (max-width: 759px) {
@@ -1690,7 +1825,8 @@ input:focus-visible {
   }
 
   .game-settings .layout-menu,
-  .game-settings .theme-menu {
+  .game-settings .theme-menu,
+  .game-settings .haptics-toggle {
     flex: 1 1 150px;
     justify-content: space-between;
   }

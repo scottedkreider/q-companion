@@ -1,0 +1,506 @@
+# Q App Feedback Implementation Plan
+
+Purpose: Implement the following UX/product feedback into the Q / Quirkle Companion app repo. This plan is optimized for Codex: clear scope, implementation order, likely touchpoints, and acceptance criteria.
+
+Working assumptions:
+- The app is a front-end-first web app.
+- Game state is already tracked locally.
+- There are existing screens/routes or view states for: Choose Players, Player Names, Main Game, Final, and Main/Start Menu.
+- The “Q” button/logo already exists somewhere in the app chrome/header.
+- Preserve current app style, but improve clarity, polish, and phone usability.
+
+Core implementation principle:
+Prefer small, contained changes. Avoid large rewrites unless the current structure makes a feature impossible. Keep state transitions explicit and testable.
+
+---
+
+## 1. Screen: Choose Players
+
+### Request
+Add a Main Menu button that returns the user to the previous screen / main menu.
+
+### Implementation Notes
+- Locate the Choose Players screen/component.
+- Add a clear “Main Menu” or “Back to Menu” button.
+- This should route or set app state back to the Main/Start Screen.
+- Use the existing navigation/state pattern already present in the repo.
+- Place the button where it is easy to find but not visually dominant. Likely top-left, bottom secondary action, or near screen heading depending on current layout.
+
+### Acceptance Criteria
+- User can leave Choose Players and return to the Main/Start Screen.
+- The button works on mobile and desktop.
+- No partial game setup state should accidentally start a game.
+- Existing player count selection still works unchanged.
+
+---
+
+## 2. Screen: Player Names
+
+### Request
+Default to capitalizing the first letter when entering player names.
+
+### Implementation Notes
+- Locate the player name input handling logic.
+- Capitalize the first alphabetical character of the entered name.
+- Preserve the rest of the user’s input unless there is already an app-wide formatting convention.
+- Do not fight the user too aggressively. If they manually change later letters, preserve that.
+- Suggested helper:
+
+```js
+function capitalizeFirstLetter(value) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+```
+
+- Apply on input change or blur. Prefer on input change only if it does not create cursor-position bugs. If cursor handling becomes awkward, apply on blur and before saving/continuing.
+
+### Acceptance Criteria
+- Typing “scott” results in “Scott” by default.
+- Existing names still load correctly.
+- Empty strings do not error.
+- User can still enter custom names without weird input jumps.
+
+---
+
+## 3. Screen: Main Game — Button Press Polish
+
+### Request
+Add slight animation for button presses.
+
+### Implementation Notes
+- Apply to score buttons, numpad buttons, Enter, Quirkle buttons, Last Tile, Undo, and other primary game action buttons.
+- Keep the animation subtle and fast.
+- Prefer CSS-only interaction states:
+  - `:active { transform: scale(0.96); }`
+  - short transition: `transform 80ms ease`, maybe `filter` or `box-shadow`
+- Do not make the UI feel slow.
+- Respect reduced motion if the app already supports it, or add a minimal reduced-motion guard.
+
+### Acceptance Criteria
+- Pressing/tapping buttons gives immediate visual feedback.
+- Animation feels responsive on phone.
+- No layout shift.
+- Reduced-motion users are not forced into heavy animation.
+
+---
+
+## 4. Screen: Main Game — Haptic Feedback
+
+### Request
+Add haptic feedback on button press, with a menu option to turn haptics off.
+
+### Implementation Notes
+- Use the browser Vibration API where available:
+
+```js
+if (hapticsEnabled && 'vibrate' in navigator) {
+  navigator.vibrate(10);
+}
+```
+
+- Haptics should fire only for intentional button actions, not every render/state update.
+- Add a user-facing setting/toggle in the app menu/settings area.
+- Persist the setting in localStorage.
+- Default: haptics ON may be okay for a mobile scoring app, but consider defaulting ON only if not annoying. If uncertain, default ON and make the toggle easy to find.
+- Gracefully do nothing on devices/browsers that do not support vibration.
+
+### Suggested helper
+
+```js
+const HAPTICS_STORAGE_KEY = 'qApp.hapticsEnabled';
+
+function triggerHaptic(enabled) {
+  if (!enabled) return;
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(10);
+  }
+}
+```
+
+### Acceptance Criteria
+- Supported mobile devices vibrate subtly on button presses.
+- User can turn haptics off.
+- Haptic preference persists after refresh.
+- App does not error in desktop browsers or unsupported mobile browsers.
+
+---
+
+## 5. Screen: Main Game — Header Mini Score Bar Preview
+
+### Request
+On the Header Mini Score Bar, see if there is enough space to show:
+
+`current score + current active number pressed`
+
+Example:
+
+`17 +6`
+
+Purpose: Make it easy to see what score is about to be submitted for the active player.
+
+### Implementation Notes
+- Locate the header mini score bar / player score summary component.
+- Identify the active player and the currently buffered score input.
+- For the active player only, display a pending score preview when there is a non-empty active input.
+- Example display logic:
+  - inactive player: `Scott 17`
+  - active player with pending input 6: `Scott 17 +6`
+  - active player with no pending input: `Scott 17`
+- Avoid crowding. If space is tight, use compact formatting:
+  - `17+6`
+  - or show pending value in a small badge.
+- Do not include submitted score until Enter is pressed.
+
+### Acceptance Criteria
+- Active player’s pending score is visible before submission.
+- The preview updates as numpad input changes.
+- The preview clears after Enter/submission.
+- Layout remains readable for 2, 3, and 4 players on phone.
+- Inactive players are not confusingly shown with pending values.
+
+---
+
+## 6. Screen: Main Game — Quick Undo Last Entry
+
+### Request
+Add “Undo Last Entry.” It should:
+- Decrement the active player to the previous player.
+- Remove the most recently added score entry.
+- Remove that score from the player’s total.
+- Allow immediate reentry.
+- Support roughly 3–5 undo levels total.
+- Expected use is only recent mistake correction.
+- Do not mark quick undo corrections as edited/tampered.
+
+### Implementation Notes
+- This should operate on submitted turn entries, not on the current unsubmitted score buffer.
+- Add a bounded history stack of recent submitted scoring actions.
+- Each submitted turn should produce an entry with enough info to undo:
+  - playerId / playerIndex
+  - score value submitted
+  - turn/round index if applicable
+  - previous active player index
+  - next active player index
+  - whether special buttons were involved, if relevant
+  - timestamp optional
+- Keep only the most recent 3–5 entries. Suggested: 5.
+- Undo should reverse the latest submitted score and restore active player to that player.
+- If the score sheet is represented as rows/turns, remove the latest score cell/entry cleanly.
+- If the latest entry was manually edited after submission, decide carefully:
+  - simplest: undo removes the latest entry as currently stored.
+  - do not add tamper marker for undo itself.
+- Disable or hide Undo when there is nothing to undo.
+
+### Suggested model
+
+```js
+const MAX_UNDO_HISTORY = 5;
+
+const submittedAction = {
+  id: crypto.randomUUID?.() ?? String(Date.now()),
+  playerIndex,
+  score,
+  previousTotal,
+  nextTotal,
+  previousActivePlayerIndex,
+  nextActivePlayerIndex,
+  scoreEntryId,
+};
+```
+
+### Suggested behavior
+- On score submit:
+  1. Save current player total as `previousTotal`.
+  2. Add score to score sheet.
+  3. Save new total as `nextTotal`.
+  4. Push action into undo history.
+  5. Trim undo history to latest 5.
+  6. Advance active player.
+
+- On undo:
+  1. Pop latest action.
+  2. Remove that score entry from score sheet.
+  3. Restore that player’s total to `previousTotal`, or recompute totals from score sheet.
+  4. Set active player to `playerIndex` / `previousActivePlayerIndex` as appropriate.
+  5. Clear current pending input.
+
+### Acceptance Criteria
+- User can undo the most recent submitted score.
+- Active player returns to the player whose score was undone.
+- Total score decrements correctly.
+- Score sheet removes the undone entry.
+- Up to 5 recent entries can be undone.
+- Undo button disabled/hidden when no undo is available.
+- Quick undo does not create the manual-edit/tamper indicator.
+
+---
+
+## 7. Screen: Main Game — Manual Score Sheet Editing
+
+### Request
+Allow clicking/tapping a score sheet cell to manually edit that number for fixing scores.
+
+Also add an indicator, like an asterisk, to show the score was adjusted/tampered with.
+
+Important: Do not show this indicator for quick undo corrections.
+
+### Implementation Notes
+- Locate score sheet rendering.
+- Make score cells interactive.
+- On tap/click, open an inline editor, small modal, popover, or prompt-style controlled input.
+- Prefer a small modal or inline edit field that works well on mobile.
+- User should be able to change the score value and save/cancel.
+- Validate input:
+  - integer
+  - likely >= 0
+  - allow app’s existing scoring rules
+- When a cell is manually edited:
+  - update that entry’s value
+  - mark that entry as manuallyEdited: true
+  - update affected player total
+- Strongly prefer recomputing totals from score entries after edits to avoid drift.
+- Display an indicator near the adjusted score:
+  - `*`
+  - or small “edited” dot/badge
+- Consider a subtle legend somewhere: `* edited score`
+- Do not mark entries as edited due to Undo.
+
+### Suggested data structure update
+
+```js
+const scoreEntry = {
+  id,
+  playerIndex,
+  value,
+  manuallyEdited: false,
+  originalValue: null,
+  createdAt,
+  editedAt: null,
+};
+```
+
+On manual edit:
+
+```js
+{
+  ...entry,
+  value: newValue,
+  manuallyEdited: true,
+  originalValue: entry.originalValue ?? entry.value,
+  editedAt: Date.now(),
+}
+```
+
+### Acceptance Criteria
+- User can tap/click an existing score cell and edit it.
+- Save updates the score sheet and total.
+- Cancel leaves score unchanged.
+- Edited cells show a visible indicator.
+- Indicator does not appear for normal submissions.
+- Indicator does not appear simply because of quick undo.
+- Editing works on mobile.
+
+---
+
+## 8. Screen: Final — Editable Game Name
+
+### Request
+Allow users to change the name of the game on the final screen.
+
+They can adjust the default value. Always keep the date easily visible, but allow the wording/name to change.
+
+### Implementation Notes
+- Locate Final screen / completed game summary.
+- Identify current default game title/name.
+- Make game name editable, probably with an input field or edit button.
+- Keep the date separate from the editable title.
+- Suggested display:
+  - Editable title: `Quirkle Game`
+  - Fixed visible date: `May 5, 2026`
+- Persist edited name in the completed game record/history/archive if history exists.
+- Do not bake the date into the editable string unless current app structure requires it.
+
+### Acceptance Criteria
+- User can edit final game name.
+- Date remains visible even after the name changes.
+- Edited name persists in game history/archive if applicable.
+- Existing final score/winner display remains unchanged.
+
+---
+
+## 9. General Navigation — Q Button Behavior
+
+### Request
+Have the Q button go back to the Main/Start Screen.
+
+### Implementation Notes
+- Locate global Q logo/button/header component.
+- Add or update click handler to navigate to Main/Start Screen.
+- Consider whether this should ask for confirmation during an active game.
+- Recommended behavior:
+  - If no active game or game is complete: go directly to Main/Start Screen.
+  - If active game has scores entered: show confirmation before abandoning current game.
+- If the current app already has save/resume behavior, preserve it.
+
+### Acceptance Criteria
+- Q button returns user to Main/Start Screen.
+- It works consistently from all screens.
+- Active game is not accidentally lost without warning, unless the app already autosaves/resumes safely.
+
+---
+
+## 10. General Visual Pass — Text Contrast
+
+### Request
+The text for “Royale” and some other text can blend into the background. Do another pass to ensure any text, especially text without a card background, has enough contrast to be easily readable.
+
+### Implementation Notes
+- Audit text that sits directly on gradient/image/color backgrounds.
+- Prioritize:
+  - Royale text
+  - screen titles
+  - labels without card backgrounds
+  - secondary text over decorative backgrounds
+  - buttons with transparent/ghost styles
+- Fix with one or more of:
+  - stronger text color
+  - text shadow
+  - subtle overlay/scrim behind text
+  - card/chip background
+  - increased font weight
+  - adjusted background gradient
+- Do not flatten the app’s personality. Preserve style while improving readability.
+- Target WCAG-ish contrast, especially on mobile outdoors.
+
+### Acceptance Criteria
+- “Royale” text is clearly readable.
+- Text without card backgrounds has sufficient contrast.
+- No important labels disappear into the background.
+- Visual style still feels like the existing Q app.
+
+---
+
+# Recommended Implementation Order
+
+1. Add shared navigation helpers if needed.
+2. Implement Q button returning to Main/Start Screen.
+3. Add Main Menu button on Choose Players.
+4. Add player-name capitalization.
+5. Add button press animation styles.
+6. Add haptics helper, setting toggle, and localStorage persistence.
+7. Add Header Mini Score Bar pending score preview.
+8. Implement Undo Last Entry with bounded history.
+9. Implement manual score cell editing and edited indicator.
+10. Implement editable final game name while keeping date visible.
+11. Run final contrast/readability pass.
+12. Test complete game flow on mobile viewport.
+
+---
+
+# State/Data Changes to Consider
+
+Likely additions:
+
+```js
+settings: {
+  hapticsEnabled: true,
+}
+```
+
+```js
+undoHistory: [] // max 5 submitted score actions
+```
+
+```js
+scoreEntries: [
+  {
+    id,
+    playerIndex,
+    value,
+    manuallyEdited: false,
+    originalValue: null,
+    createdAt,
+    editedAt: null,
+  }
+]
+```
+
+```js
+completedGame: {
+  name,
+  date,
+  players,
+  scores,
+  scoreEntries,
+}
+```
+
+Important: Prefer recomputing totals from scoreEntries after manual edits rather than trying to maintain totals through many mutations.
+
+---
+
+# Mobile Testing Checklist
+
+Test on a narrow viewport/mobile browser:
+
+- Choose Players → Main Menu works.
+- Q button returns to Main/Start Screen from each screen.
+- Player names auto-capitalize first letter.
+- Button press animation feels immediate, not sluggish.
+- Haptics works where supported.
+- Haptics toggle persists after refresh.
+- Header Mini Score Bar shows pending score for active player only.
+- Pending score clears after Enter.
+- Undo removes the latest score and returns to the correct player.
+- Multiple undo operations work up to the configured limit.
+- Manual score edit updates totals correctly.
+- Edited score shows an asterisk or similar indicator.
+- Quick undo does not create an edited indicator.
+- Final game name can be changed.
+- Final game date remains visible.
+- Royale and all standalone text remain readable against backgrounds.
+
+---
+
+# Edge Cases
+
+- Undo when no score has been submitted.
+- Undo after a manual edit.
+- Manual edit after several turns.
+- Manual edit to 0.
+- Manual edit to empty or invalid value.
+- Player names with one character.
+- Player names pasted in instead of typed.
+- Haptics on unsupported browser.
+- 2-player, 3-player, and 4-player layouts.
+- Header Mini Score Bar with long player names.
+- Returning to Main Menu during an active game.
+
+---
+
+# Suggested Commit Breakdown
+
+1. `Add main menu navigation controls`
+2. `Polish player name input formatting`
+3. `Add button press animation and haptic setting`
+4. `Show pending score in mini score bar`
+5. `Add bounded undo for recent score entries`
+6. `Add manual score editing with edited indicator`
+7. `Allow final game name editing`
+8. `Improve text contrast across game modes`
+
+---
+
+# Definition of Done
+
+This feedback is complete when:
+
+- All requested screen-specific changes are implemented.
+- The score flow remains fast and simple.
+- Undo handles recent mistakes without creating edited/tampered indicators.
+- Manual edits are clearly marked.
+- Haptics can be disabled and the setting persists.
+- Navigation back to Main/Start Screen is consistent.
+- Final game name is editable while date remains visible.
+- Text contrast is improved without making the app bland.

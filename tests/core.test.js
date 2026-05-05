@@ -67,6 +67,51 @@ test("last tile bonus ends the game and assigns winner treatment", () => {
   assert.equal(QC.doesAssignWinner(state), true);
 });
 
+test("undo last turn removes the entry and restores active player", () => {
+  let state = makeStartedState(2);
+  state = QC.submitTurn({ ...state, inputValue: "5" }, "2026-05-03T20:01:00.000Z");
+  state = QC.submitTurn({ ...state, inputValue: "7" }, "2026-05-03T20:02:00.000Z");
+
+  state = QC.undoLastTurn(state);
+
+  assert.equal(state.players[0].score, 5);
+  assert.equal(state.players[1].score, 0);
+  assert.equal(state.turnHistory.length, 1);
+  assert.equal(state.activePlayerIndex, 1);
+  assert.equal(state.turnNumber, 2);
+  assert.equal(state.gameOver, false);
+});
+
+test("undo after last tile reopens the game without an edited marker", () => {
+  let state = makeStartedState(2);
+  state = QC.submitTurn(
+    { ...state, inputValue: "8", lastTileBonusApplied: true },
+    "2026-05-03T20:01:00.000Z"
+  );
+
+  state = QC.undoLastTurn(state);
+
+  assert.equal(state.gameOver, false);
+  assert.equal(state.gameEndReason, null);
+  assert.equal(state.screen, "game");
+  assert.equal(state.players[0].score, 0);
+  assert.equal(state.turnHistory.length, 0);
+});
+
+test("manual score edit marks a turn and recomputes later running totals", () => {
+  let state = makeStartedState(2);
+  state = QC.submitTurn({ ...state, inputValue: "5" }, "2026-05-03T20:01:00.000Z");
+  state = QC.submitTurn({ ...state, inputValue: "7" }, "2026-05-03T20:02:00.000Z");
+  state = QC.submitTurn({ ...state, inputValue: "4" }, "2026-05-03T20:03:00.000Z");
+
+  state = QC.editTurnScore(state, state.turnHistory[0].id, 9, "2026-05-03T20:04:00.000Z");
+
+  assert.equal(state.turnHistory[0].turnTotal, 9);
+  assert.equal(state.turnHistory[0].manuallyEdited, true);
+  assert.equal(state.turnHistory[2].runningTotal, 13);
+  assert.deepEqual(state.players.map((player) => player.score), [13, 7]);
+});
+
 test("manual end does not assign winner", () => {
   const state = {
     ...makeStartedState(2),

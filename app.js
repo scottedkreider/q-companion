@@ -9,6 +9,7 @@ const BRAND = {
   layoutPreferenceKey: "q-companion.layoutPreference.v1",
   themePreferenceKey: "q-companion.themePreference.v1",
   saveModePreferenceKey: "q-companion.saveModePreference.v1",
+  hapticsPreferenceKey: "q-companion.hapticsPreference.v1",
   gameArchiveKey: "q-companion.gameArchive.v1",
   disclaimer:
     "Q Companion is an independent tabletop scorekeeping prototype. It is not affiliated with any game publisher.",
@@ -185,6 +186,33 @@ const SAVE_MODE_ADAPTER = {
   },
 };
 
+const HAPTICS_ADAPTER = {
+  load() {
+    try {
+      const raw = window.localStorage.getItem(BRAND.hapticsPreferenceKey);
+      const saved = raw ? JSON.parse(raw) : null;
+      return saved?.hapticsEnabled !== false;
+    } catch (error) {
+      console.warn("Could not load haptics preference.", error);
+      return true;
+    }
+  },
+  save(hapticsEnabled) {
+    try {
+      window.localStorage.setItem(
+        BRAND.hapticsPreferenceKey,
+        JSON.stringify({
+          schemaVersion: 1,
+          savedAt: new Date().toISOString(),
+          hapticsEnabled: Boolean(hapticsEnabled),
+        })
+      );
+    } catch (error) {
+      console.warn("Could not save haptics preference.", error);
+    }
+  },
+};
+
 const GAME_ARCHIVE_ADAPTER = {
   load() {
     try {
@@ -231,6 +259,7 @@ const initialState = () =>
     layoutMode: LAYOUT_ADAPTER.load(),
     themeMode: THEME_ADAPTER.load(),
     saveMode: SAVE_MODE_ADAPTER.load(),
+    hapticsEnabled: HAPTICS_ADAPTER.load(),
   });
 
 let state = hydrateState(STORAGE_ADAPTER.load()) || initialState();
@@ -264,6 +293,12 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button || button.disabled) return;
+  triggerHaptic();
+});
+
 function hydrateState(savedState) {
   return QC.hydrateState(savedState, initialState());
 }
@@ -294,6 +329,9 @@ function render() {
   if (state.screen === "history") renderHistory(app);
   if (state.screen === "historyDetail") renderHistoryDetail(app);
   if (state.screen === "editHistoryNotes") renderEditHistoryNotes(app);
+  document.querySelectorAll("[data-action='main-menu']").forEach((button) => {
+    button.addEventListener("click", goToMainMenu);
+  });
 }
 
 function renderStart(app) {
@@ -315,6 +353,7 @@ function renderStart(app) {
       <div class="settings-row">
         ${renderSaveModePicker()}
         ${renderThemeMenu()}
+        ${renderHapticsToggle()}
       </div>
       ${BRAND.showDisclaimer ? `<p class="disclaimer">${escapeHtml(BRAND.disclaimer)}</p>` : ""}
     </section>
@@ -325,6 +364,7 @@ function renderStart(app) {
   bind("[data-action='new']", "click", startFreshGame);
   bind("[data-save-mode]", "change", (event) => setSaveMode(event.currentTarget.value));
   bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
+  bind("[data-haptics-enabled]", "change", (event) => setHapticsEnabled(event.currentTarget.checked));
 }
 
 function renderSaveModePicker() {
@@ -353,6 +393,15 @@ function renderThemeMenu() {
   `;
 }
 
+function renderHapticsToggle() {
+  return `
+    <label class="haptics-toggle">
+      <input type="checkbox" data-haptics-enabled ${state.hapticsEnabled ? "checked" : ""}>
+      <span>Haptics</span>
+    </label>
+  `;
+}
+
 function nextStartScreen() {
   if (!state.playerCount) return "playerCount";
   if (!state.players.length) return "names";
@@ -368,6 +417,7 @@ function renderPlayerCount(app) {
       <div class="count-grid">
         ${PLAYER_COUNTS.map((count) => `<button data-count="${count}">${count}</button>`).join("")}
       </div>
+      <button class="ghost" data-action="main-menu">Main Menu</button>
     </section>
   `;
 
@@ -391,7 +441,7 @@ function renderNames(app) {
               <div class="field name-field">
                 <label for="player-${index}">Player ${index + 1}</label>
                 <div class="name-input-wrap">
-                  <input id="player-${index}" name="player-${index}" value="${escapeAttribute(player.name)}" autocomplete="off">
+                  <input id="player-${index}" name="player-${index}" value="${escapeAttribute(player.name)}" autocomplete="off" data-name-input>
                   <button class="clear-name-control" type="button" data-clear-name="${index}" aria-label="Clear Player ${index + 1} name">Clear</button>
                 </div>
               </div>
@@ -411,12 +461,17 @@ function renderNames(app) {
     const form = new FormData(event.currentTarget);
     const players = state.players.map((player, index) => ({
       ...player,
-      name: normalizeName(form.get(`player-${index}`), index),
+      name: normalizeName(capitalizeFirstAlphabetical(form.get(`player-${index}`)), index),
     }));
     rememberPlayerNames(players);
     setState({ players, screen: "order" });
   });
   bind("[data-action='back-player-count']", "click", () => setState({ screen: "playerCount" }));
+  document.querySelectorAll("[data-name-input]").forEach((input) => {
+    input.addEventListener("blur", () => {
+      input.value = capitalizeFirstAlphabetical(input.value);
+    });
+  });
   document.querySelectorAll("[data-clear-name]").forEach((button) => {
     button.addEventListener("click", () => {
       const input = document.getElementById(`player-${button.dataset.clearName}`);
@@ -496,6 +551,7 @@ function renderGame(app) {
             ${renderScoreboardPanel()}
           `
       }
+      ${renderScoreEditDialog()}
     </section>
   `;
 
@@ -503,6 +559,7 @@ function renderGame(app) {
     setLayoutMode(event.currentTarget.value);
   });
   bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
+  bind("[data-haptics-enabled]", "change", (event) => setHapticsEnabled(event.currentTarget.checked));
   document.querySelectorAll("[data-digit]").forEach((button) => {
     button.addEventListener("click", () => appendDigit(button.dataset.digit));
   });
@@ -515,6 +572,8 @@ function renderGame(app) {
   bind("[data-action='arm-end-game']", "click", armEndGame);
   bind("[data-action='cancel-end-game']", "click", cancelEndGame);
   bind("[data-action='confirm-end-game']", "click", endGameManually);
+  bind("[data-action='undo-last']", "click", undoLastEntry);
+  bindScoreEditing();
   setTimeout(scrollLiveScoreboardToBottom, 0);
 }
 
@@ -531,6 +590,7 @@ function renderGameSettings(layoutMode) {
           </select>
         </div>
         ${renderThemeMenu()}
+        ${renderHapticsToggle()}
       </div>
     </details>
   `;
@@ -544,13 +604,19 @@ function renderMobileScoreSummary() {
           (player, index) => `
             <button class="score-summary-chip ${index === state.activePlayerIndex ? "active" : ""}" type="button" disabled>
               <span>${escapeHtml(player.name)}</span>
-              <strong>${player.score}</strong>
+              <strong>${player.score}${index === state.activePlayerIndex ? renderPendingScorePreview() : ""}</strong>
             </button>
           `
         )
         .join("")}
     </div>
   `;
+}
+
+function renderPendingScorePreview() {
+  const pendingTotal = getTurnTotal();
+  const hasPendingInput = state.inputValue !== "" || state.lineBonusApplied || state.lastTileBonusApplied;
+  return hasPendingInput ? `<span class="pending-score">+${pendingTotal}</span>` : "";
 }
 
 function renderEntryPad() {
@@ -628,6 +694,7 @@ function renderQuickControls() {
         <button class="bonus-control accent" data-action="standard-line">${escapeHtml(BRAND.labels.standardLine)}</button>
         ${renderLastTileButton()}
       </div>
+      <button class="ghost undo-control" data-action="undo-last" ${state.turnHistory.length ? "" : "disabled"}>Undo Last Entry</button>
     </div>
   `;
 }
@@ -711,6 +778,7 @@ function renderResults(app) {
         ${state.saveMode === "saveAll" ? '<p class="muted">Save All Games is on. This game will be kept in Game History.</p>' : ""}
         ${renderFinalScoresGrid(rankings, assignsWinner)}
         ${renderSavedNotes(savedGame)}
+        ${renderFinalTitleEditor()}
         <div class="button-row">
           <button class="ghost" data-action="record-game" data-return-screen="results">${state.recordedGameId ? "Game Notes" : "Save Game"}</button>
         </div>
@@ -721,12 +789,29 @@ function renderResults(app) {
         <button class="ghost icon-button" data-action="history"><span class="button-icon icon-history" aria-hidden="true"></span><span>History</span></button>
       </div>
     </section>
+    ${renderScoreEditDialog()}
   `;
 
   bind("[data-action='record-game']", "click", (event) => openRecordGame(event.currentTarget.dataset.returnScreen || "results"));
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "results" }));
   bind("[data-action='new']", "click", startFreshGame);
+  bind("[data-form='final-title']", "submit", saveFinalTitle);
+  bindScoreEditing();
   setTimeout(scrollToFinalScores, 0);
+}
+
+function renderFinalTitleEditor() {
+  const title = state.finalGameTitle || makeGameTitle(state);
+  return `
+    <form class="final-title-editor" data-form="final-title">
+      <div class="field">
+        <label for="final-game-title">Game name</label>
+        <input id="final-game-title" name="title" value="${escapeAttribute(title)}" autocomplete="off">
+      </div>
+      <p class="muted">Date: ${escapeHtml(formatDisplayDate(state.gameStartedAt || state.gameEndedAt))}</p>
+      <button class="ghost" type="submit">Update Name</button>
+    </form>
+  `;
 }
 
 function renderSavedNotes(savedGame) {
@@ -742,7 +827,7 @@ function renderSavedNotes(savedGame) {
 
 function renderRecordGame(app) {
   const existingGame = state.recordedGameId ? GAME_ARCHIVE_ADAPTER.find(state.recordedGameId) : null;
-  const defaultTitle = makeGameTitle(state);
+  const defaultTitle = state.finalGameTitle || makeGameTitle(state);
   app.innerHTML = `
     <section class="screen">
       ${renderHeader("Save Game", "Save a snapshot without changing the active game.")}
@@ -916,6 +1001,50 @@ function renderHistoryDeleteControls(game) {
   `;
 }
 
+function renderScoreEditDialog() {
+  if (!state.editingTurnId) return "";
+  const turn = state.turnHistory.find((item) => item.id === state.editingTurnId);
+  if (!turn) return "";
+  const player = state.players.find((item) => item.id === turn.playerId);
+  const preEndBonusTotal = turn.turnTotal - turn.lastTileBonus;
+  return `
+    <div class="dialog-backdrop" role="presentation">
+      <form class="edit-score-dialog" data-form="edit-score" role="dialog" aria-modal="true" aria-labelledby="edit-score-title">
+        <h2 id="edit-score-title" class="section-title">Edit Score</h2>
+        <p class="muted">${escapeHtml(player?.name || "Player")} &middot; Round ${turn.roundNumber}</p>
+        <div class="field">
+          <label for="edit-score-value">Score</label>
+          <input id="edit-score-value" name="score" inputmode="numeric" pattern="[0-9]*" value="${escapeAttribute(preEndBonusTotal)}" autocomplete="off">
+        </div>
+        ${turn.lastTileBonus ? `<p class="muted">Last Tile +${turn.lastTileBonus} stays attached to this entry.</p>` : ""}
+        <div class="button-row">
+          <button class="primary" type="submit">Save</button>
+          <button class="ghost" type="button" data-action="cancel-edit-score">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function bindScoreEditing() {
+  document.querySelectorAll("[data-edit-turn]").forEach((button) => {
+    button.addEventListener("click", () => setState({ editingTurnId: button.dataset.editTurn }));
+  });
+  bind("[data-form='edit-score']", "submit", saveScoreEdit);
+  bind("[data-action='cancel-edit-score']", "click", () => setState({ editingTurnId: null }));
+}
+
+function saveScoreEdit(event) {
+  event.preventDefault();
+  if (!state.editingTurnId) return;
+  const form = new FormData(event.currentTarget);
+  const score = Number(String(form.get("score") || "").trim());
+  if (!Number.isInteger(score) || score < 0) return;
+  state = QC.editTurnScore(state, state.editingTurnId, score, new Date().toISOString());
+  persist();
+  render();
+}
+
 function deleteHistoryGame(gameId) {
   GAME_ARCHIVE_ADAPTER.delete(gameId);
   setState({
@@ -934,6 +1063,7 @@ function renderScoreSheet() {
 
   return `
     ${renderScoreboardGrid({ includeOpenRow: false })}
+    ${hasEditedScores(state.turnHistory) ? '<p class="edited-legend">* edited score</p>' : ""}
     ${renderTotalsGrid(state.players)}
   `;
 }
@@ -967,6 +1097,7 @@ function renderArchivedScoreSheet(game) {
         </tbody>
       </table>
     </div>
+    ${hasEditedScores(game.turnHistory) ? '<p class="edited-legend">* edited score</p>' : ""}
     ${renderTotalsGrid(game.players)}
   `;
 }
@@ -985,6 +1116,7 @@ function renderArchivedScoreboardCell(game, round, player) {
         <strong class="paper-turn">+${preEndBonusTotal}</strong>
         ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
         <span class="paper-running">${turn.runningTotal}</span>
+        ${turn.manuallyEdited ? '<span class="edited-mark" title="Edited score">*</span>' : ""}
       </div>
     </td>
   `;
@@ -1052,13 +1184,16 @@ function renderScoreboardCell(round, player) {
   const preEndBonusTotal = turn.turnTotal - turn.lastTileBonus;
   return `
     <td>
-      <div class="paper-entry">
-        ${carry ? `<span class="paper-carry">${carry}</span>` : ""}
-        <span class="paper-crossout">${previousTotal}</span>
-        <strong class="paper-turn">+${preEndBonusTotal}</strong>
-        ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
-        <span class="paper-running">${turn.runningTotal}</span>
-      </div>
+      <button class="score-edit-button" type="button" data-edit-turn="${escapeAttribute(turn.id)}" aria-label="Edit ${escapeAttribute(player.name)} round ${round} score">
+        <span class="paper-entry">
+          ${carry ? `<span class="paper-carry">${carry}</span>` : ""}
+          <span class="paper-crossout">${previousTotal}</span>
+          <strong class="paper-turn">+${preEndBonusTotal}</strong>
+          ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
+          <span class="paper-running">${turn.runningTotal}</span>
+          ${turn.manuallyEdited ? '<span class="edited-mark" title="Edited score">*</span>' : ""}
+        </span>
+      </button>
     </td>
   `;
 }
@@ -1132,6 +1267,10 @@ function getPreviousRunningTotal(turn) {
   return QC.getPreviousRunningTotal(state.turnHistory, turn);
 }
 
+function hasEditedScores(turnHistory) {
+  return turnHistory.some((turn) => turn.manuallyEdited);
+}
+
 function renderHeader(title, subtitle) {
   return `
     <header class="topbar">
@@ -1139,7 +1278,7 @@ function renderHeader(title, subtitle) {
         <h1 class="screen-title">${escapeHtml(title)}</h1>
         <p class="subtitle">${escapeHtml(subtitle)}</p>
       </div>
-      <span class="brand-mark" aria-hidden="true">${escapeHtml(BRAND.shortName)}</span>
+      <button class="brand-mark brand-button" type="button" data-action="main-menu" aria-label="Main menu">${escapeHtml(BRAND.shortName)}</button>
     </header>
   `;
 }
@@ -1173,6 +1312,28 @@ function setSaveMode(saveMode) {
   const nextSaveMode = saveMode === "saveAll" ? "saveAll" : "sessionless";
   SAVE_MODE_ADAPTER.save(nextSaveMode);
   setState({ saveMode: nextSaveMode });
+}
+
+function setHapticsEnabled(hapticsEnabled) {
+  HAPTICS_ADAPTER.save(Boolean(hapticsEnabled));
+  setState({ hapticsEnabled: Boolean(hapticsEnabled) });
+}
+
+function triggerHaptic() {
+  if (!state.hapticsEnabled) return;
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    navigator.vibrate(10);
+  }
+}
+
+function goToMainMenu() {
+  setState({
+    screen: "start",
+    historySelectedId: null,
+    deleteHistoryArmedId: null,
+    editingTurnId: null,
+    returnScreen: "start",
+  });
 }
 
 function getHistoryBackScreen() {
@@ -1212,9 +1373,20 @@ function saveHistoryNotes(event) {
   setState({ screen: "historyDetail" });
 }
 
+function saveFinalTitle(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const finalGameTitle = String(form.get("title") || "").trim() || makeGameTitle(state);
+  if (state.recordedGameId) {
+    const game = GAME_ARCHIVE_ADAPTER.find(state.recordedGameId);
+    if (game) GAME_ARCHIVE_ADAPTER.upsert({ ...game, title: finalGameTitle, updatedAt: new Date().toISOString() });
+  }
+  setState({ finalGameTitle });
+}
+
 function autoSaveCompletedGame() {
   if (!state.gameOver || state.recordedGameId || !state.players.length) return;
-  const savedGame = makeGameSnapshot({ title: makeGameTitle(state), notes: "" });
+  const savedGame = makeGameSnapshot({ title: state.finalGameTitle || makeGameTitle(state), notes: "" });
   GAME_ARCHIVE_ADAPTER.upsert(savedGame);
   setState({ recordedGameId: savedGame.id });
 }
@@ -1226,6 +1398,7 @@ function makeGameSnapshot({ title, notes }) {
 }
 
 function makeGameTitle(gameState) {
+  if (gameState.finalGameTitle) return gameState.finalGameTitle;
   const date = formatCompactDate(gameState.gameStartedAt || new Date().toISOString());
   const initials = formatPlayerInitials(gameState.players);
   const winner = getDefaultTitleWinner(gameState);
@@ -1235,6 +1408,10 @@ function makeGameTitle(gameState) {
 
 function normalizeName(value, index) {
   return QC.normalizeName(value, index);
+}
+
+function capitalizeFirstAlphabetical(value) {
+  return String(value || "").replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
 }
 
 function movePlayer(index, direction) {
@@ -1316,10 +1493,13 @@ function startPlay() {
     gameStartedAt: new Date().toISOString(),
     gameEndedAt: null,
     turnHistory: [],
+    undoHistory: [],
     gameOver: false,
     gameEndReason: null,
     endGameArmed: false,
     recordedGameId: null,
+    finalGameTitle: "",
+    editingTurnId: null,
     orderSelectedIndex: null,
     screen: "game",
   });
@@ -1384,6 +1564,12 @@ function endGameManually() {
 
 function submitTurn() {
   state = QC.submitTurn(state, new Date().toISOString());
+  persist();
+  render();
+}
+
+function undoLastEntry() {
+  state = QC.undoLastTurn(state);
   persist();
   render();
 }
