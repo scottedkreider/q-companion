@@ -9,7 +9,6 @@ const BRAND = {
   layoutPreferenceKey: "q-companion.layoutPreference.v1",
   themePreferenceKey: "q-companion.themePreference.v1",
   saveModePreferenceKey: "q-companion.saveModePreference.v1",
-  hapticsPreferenceKey: "q-companion.hapticsPreference.v1",
   gameArchiveKey: "q-companion.gameArchive.v1",
   disclaimer:
     "Q Companion is an independent tabletop scorekeeping prototype. It is not affiliated with any game publisher.",
@@ -187,33 +186,6 @@ const SAVE_MODE_ADAPTER = {
   },
 };
 
-const HAPTICS_ADAPTER = {
-  load() {
-    try {
-      const raw = window.localStorage.getItem(BRAND.hapticsPreferenceKey);
-      const saved = raw ? JSON.parse(raw) : null;
-      return saved?.hapticsEnabled !== false;
-    } catch (error) {
-      console.warn("Could not load haptics preference.", error);
-      return true;
-    }
-  },
-  save(hapticsEnabled) {
-    try {
-      window.localStorage.setItem(
-        BRAND.hapticsPreferenceKey,
-        JSON.stringify({
-          schemaVersion: 1,
-          savedAt: new Date().toISOString(),
-          hapticsEnabled: Boolean(hapticsEnabled),
-        })
-      );
-    } catch (error) {
-      console.warn("Could not save haptics preference.", error);
-    }
-  },
-};
-
 const GAME_ARCHIVE_ADAPTER = {
   load() {
     try {
@@ -260,7 +232,6 @@ const initialState = () =>
     layoutMode: LAYOUT_ADAPTER.load(),
     themeMode: THEME_ADAPTER.load(),
     saveMode: SAVE_MODE_ADAPTER.load(),
-    hapticsEnabled: HAPTICS_ADAPTER.load(),
   });
 
 let state = hydrateState(STORAGE_ADAPTER.load()) || initialState();
@@ -274,6 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 document.addEventListener("keydown", (event) => {
   if (state.screen !== "game" || state.gameOver) return;
+  if (state.editingTurnId || isTextEntryTarget(event.target)) return;
 
   if (/^[0-9]$/.test(event.key)) {
     event.preventDefault();
@@ -300,7 +272,6 @@ document.addEventListener("click", (event) => {
   const button = getEventButton(event);
   if (!button || button.disabled) return;
   pulseButtonPress(button);
-  triggerHaptic();
 });
 
 document.addEventListener("pointerdown", handleButtonPointerDown);
@@ -345,6 +316,8 @@ function render(options = {}) {
 
 function renderStart(app) {
   const hasSavedProgress = state.players.length > 0 || state.turnHistory.length > 0;
+  const menuReturnScreen = getMenuReturnScreen();
+  const startLabel = menuReturnScreen ? getMenuReturnLabel(menuReturnScreen) : hasSavedProgress ? "Continue Setup" : "Start Game";
   app.innerHTML = `
     <section class="screen center-screen">
       <div class="brand-lockup">
@@ -355,25 +328,23 @@ function renderStart(app) {
         </div>
       </div>
       <div class="actions">
-        <button class="primary" data-action="start">${hasSavedProgress ? "Continue Setup" : "Start Game"}</button>
+        <button class="primary" data-action="start">${escapeHtml(startLabel)}</button>
         <button class="ghost" data-action="history">Game History</button>
         ${hasSavedProgress ? '<button class="ghost" data-action="new">New Game</button>' : ""}
       </div>
       <div class="settings-row">
         ${renderSaveModePicker()}
         ${renderThemeMenu()}
-        ${renderHapticsToggle()}
       </div>
       ${BRAND.showDisclaimer ? `<p class="disclaimer">${escapeHtml(BRAND.disclaimer)}</p>` : ""}
     </section>
   `;
 
-  bind("[data-action='start']", "click", () => setState({ screen: nextStartScreen() }));
+  bind("[data-action='start']", "click", resumeFromStart);
   bind("[data-action='history']", "click", () => setState({ screen: "history", returnScreen: "start" }));
   bind("[data-action='new']", "click", startFreshGame);
   bind("[data-save-mode]", "change", (event) => setSaveMode(event.currentTarget.value));
   bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
-  bind("[data-haptics-enabled]", "change", (event) => setHapticsEnabled(event.currentTarget.checked));
 }
 
 function renderSaveModePicker() {
@@ -402,21 +373,31 @@ function renderThemeMenu() {
   `;
 }
 
-function renderHapticsToggle() {
-  return `
-    <label class="haptics-toggle">
-      <input type="checkbox" data-haptics-enabled ${state.hapticsEnabled ? "checked" : ""}>
-      <span>Haptics</span>
-    </label>
-  `;
-}
-
 function nextStartScreen() {
   if (!state.playerCount) return "playerCount";
   if (!state.players.length) return "names";
   if (state.gameOver) return "results";
   if (state.gameStartedAt) return "game";
   return "order";
+}
+
+function resumeFromStart() {
+  const menuReturnScreen = getMenuReturnScreen();
+  setState({ screen: menuReturnScreen || nextStartScreen(), menuReturnScreen: null });
+}
+
+function getMenuReturnScreen() {
+  const screen = state.menuReturnScreen;
+  const allowedScreens = new Set(["playerCount", "names", "order", "game", "results", "recordGame", "history", "historyDetail", "editHistoryNotes"]);
+  return allowedScreens.has(screen) ? screen : null;
+}
+
+function getMenuReturnLabel(screen) {
+  if (screen === "game") return "Return to Game";
+  if (screen === "results") return "Return to Results";
+  if (screen === "history" || screen === "historyDetail" || screen === "editHistoryNotes") return "Return to History";
+  if (screen === "recordGame") return "Return to Notes";
+  return "Continue Setup";
 }
 
 function renderPlayerCount(app) {
@@ -569,7 +550,6 @@ function renderGame(app, options = {}) {
     setLayoutMode(event.currentTarget.value);
   });
   bind("[data-theme-mode]", "change", (event) => setThemeMode(event.currentTarget.value));
-  bind("[data-haptics-enabled]", "change", (event) => setHapticsEnabled(event.currentTarget.checked));
   document.querySelectorAll("[data-digit]").forEach((button) => {
     button.addEventListener("click", () => appendDigit(button.dataset.digit));
   });
@@ -584,6 +564,9 @@ function renderGame(app, options = {}) {
   bind("[data-action='confirm-end-game']", "click", endGameManually);
   bind("[data-action='undo-last']", "click", undoLastEntry);
   bindScoreEditing();
+  if (state.editingTurnId) {
+    setTimeout(() => document.getElementById("edit-score-value")?.focus(), 0);
+  }
   if (!options.skipScoreScroll) {
     setTimeout(scrollLiveScoreboardToBottom, 0);
   } else if (options.scoreScrollTop !== null) {
@@ -604,7 +587,6 @@ function renderGameSettings(layoutMode) {
           </select>
         </div>
         ${renderThemeMenu()}
-        ${renderHapticsToggle()}
       </div>
     </details>
   `;
@@ -665,6 +647,7 @@ function renderTurnOrderViz() {
         <strong>up now</strong>
       </div>
       ${state.players.map((player, index) => renderTurnSeat(player, index)).join("")}
+      ${state.players.map((player, index) => renderTableScore(player, index)).join("")}
     </div>
   `;
 }
@@ -675,7 +658,6 @@ function renderTurnSeat(player, index) {
     <div class="table-person seat-${index + 1} ${index === state.activePlayerIndex ? "active" : ""} ${index === nextIndex && index !== state.activePlayerIndex ? "next" : ""}">
       <span class="person-icon" aria-hidden="true"></span>
       <strong class="person-label">${escapeHtml(player.name)}</strong>
-      ${renderTableScore(player, index)}
     </div>
   `;
 }
@@ -1046,7 +1028,7 @@ function renderScoreEditDialog() {
         <p class="muted">${escapeHtml(player?.name || "Player")} &middot; Round ${turn.roundNumber}</p>
         <div class="field">
           <label for="edit-score-value">Score</label>
-          <input id="edit-score-value" name="score" inputmode="numeric" pattern="[0-9]*" value="${escapeAttribute(preEndBonusTotal)}" autocomplete="off">
+          <input id="edit-score-value" name="score" type="number" inputmode="numeric" min="0" step="1" value="${escapeAttribute(preEndBonusTotal)}" autocomplete="off" autofocus>
         </div>
         ${turn.lastTileBonus ? `<p class="muted">Last Tile +${turn.lastTileBonus} stays attached to this entry.</p>` : ""}
         <div class="button-row">
@@ -1059,6 +1041,7 @@ function renderScoreEditDialog() {
 }
 
 function bindScoreEditing() {
+  if (state.gameOver) return;
   document.querySelectorAll("[data-edit-turn]").forEach((button) => {
     button.addEventListener("click", () => setState({ editingTurnId: button.dataset.editTurn }));
   });
@@ -1094,7 +1077,7 @@ function renderScoreSheet() {
   }
 
   return `
-    ${renderScoreboardGrid({ includeOpenRow: false })}
+    ${renderScoreboardGrid({ includeOpenRow: false, editable: false })}
     ${hasEditedScores(state.turnHistory) ? '<p class="edited-legend">* edited score</p>' : ""}
     ${renderTotalsGrid(state.players)}
   `;
@@ -1166,6 +1149,7 @@ function getArchivedPreviousRunningTotal(game, turn) {
 
 function renderScoreboardGrid(options = {}) {
   const includeOpenRow = Boolean(options.includeOpenRow);
+  const editable = options.editable !== false && !state.gameOver;
   const rounds = getScoreboardRounds(includeOpenRow);
 
   return `
@@ -1176,10 +1160,9 @@ function renderScoreboardGrid(options = {}) {
             <th>Round</th>
             ${state.players
               .map(
-                (player, index) => `
-                  <th class="${index === state.activePlayerIndex && !state.gameOver ? "active-player" : ""}">
+                (player) => `
+                  <th>
                     ${escapeHtml(player.name)}
-                    ${index === state.activePlayerIndex && !state.gameOver ? '<span class="current-pill">Current</span>' : ""}
                   </th>
                 `
               )
@@ -1192,7 +1175,7 @@ function renderScoreboardGrid(options = {}) {
               (round) => `
                 <tr class="${isOpenRound(round) ? "open-round" : ""}">
                   <th>${round}</th>
-                  ${state.players.map((player) => renderScoreboardCell(round, player)).join("")}
+                  ${state.players.map((player) => renderScoreboardCell(round, player, editable)).join("")}
                 </tr>
               `
             )
@@ -1203,24 +1186,30 @@ function renderScoreboardGrid(options = {}) {
   `;
 }
 
-function renderScoreboardCell(round, player) {
+function renderScoreboardCell(round, player, editable = true) {
   const turn = state.turnHistory.find((item) => item.roundNumber === round && item.playerId === player.id);
   if (!turn) {
     const isCurrentOpenCell = !state.gameOver && round === getRoundNumber(state.turnNumber) && player.id === state.players[state.activePlayerIndex]?.id;
-    return `<td class="${isCurrentOpenCell ? "score-open" : "score-empty"}">${isCurrentOpenCell ? "Next" : "-"}</td>`;
+    return `<td class="${isCurrentOpenCell ? "score-open active-score-cell" : "score-empty"}">${isCurrentOpenCell ? "Next" : "-"}</td>`;
   }
   const previousTotal = getPreviousRunningTotal(turn);
   const preEndBonusTotal = turn.turnTotal - turn.lastTileBonus;
+  const content = `
+    <span class="paper-entry">
+      <span class="paper-crossout">${previousTotal}</span>
+      <strong class="paper-turn">+${preEndBonusTotal}</strong>
+      ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
+      <span class="paper-running">${turn.runningTotal}</span>
+      ${turn.manuallyEdited ? '<span class="edited-mark" title="Edited score">*</span>' : ""}
+    </span>
+  `;
+  if (!editable) {
+    return `<td>${content}</td>`;
+  }
   return `
     <td>
       <button class="score-edit-button" type="button" data-edit-turn="${escapeAttribute(turn.id)}" aria-label="Edit ${escapeAttribute(player.name)} round ${round} score">
-        <span class="paper-entry">
-          <span class="paper-crossout">${previousTotal}</span>
-          <strong class="paper-turn">+${preEndBonusTotal}</strong>
-          ${turn.lastTileBonus ? `<span class="paper-end-bonus">+${turn.lastTileBonus} end</span>` : ""}
-          <span class="paper-running">${turn.runningTotal}</span>
-          ${turn.manuallyEdited ? '<span class="edited-mark" title="Edited score">*</span>' : ""}
-        </span>
+        ${content}
       </button>
     </td>
   `;
@@ -1312,8 +1301,10 @@ function renderHeader(title, subtitle) {
 }
 
 function makeDefaultPlayers(count) {
+  const currentNames = state.players.map((player) => player.name);
   const rememberedNames = PLAYER_NAMES_ADAPTER.load();
-  return QC.makeDefaultPlayers(count, rememberedNames);
+  const names = Array.from({ length: count }, (_, index) => currentNames[index] || rememberedNames[index] || "");
+  return QC.makeDefaultPlayers(count, names);
 }
 
 function rememberPlayerNames(players) {
@@ -1342,20 +1333,13 @@ function setSaveMode(saveMode) {
   setState({ saveMode: nextSaveMode });
 }
 
-function setHapticsEnabled(hapticsEnabled) {
-  HAPTICS_ADAPTER.save(Boolean(hapticsEnabled));
-  setState({ hapticsEnabled: Boolean(hapticsEnabled) });
-}
-
-function triggerHaptic() {
-  if (!state.hapticsEnabled) return;
-  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-    navigator.vibrate(10);
-  }
-}
-
 function getEventButton(event) {
   return event.target instanceof Element ? event.target.closest("button") : null;
+}
+
+function isTextEntryTarget(target) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
 function handleButtonPointerDown(event) {
@@ -1385,12 +1369,12 @@ function releaseButtonPress(button, delay = 70) {
 }
 
 function goToMainMenu() {
+  const menuReturnScreen = state.screen === "start" ? state.menuReturnScreen : state.screen;
   setState({
     screen: "start",
-    historySelectedId: null,
     deleteHistoryArmedId: null,
     editingTurnId: null,
-    returnScreen: "start",
+    menuReturnScreen,
   });
 }
 
@@ -1559,6 +1543,7 @@ function startPlay() {
     finalGameTitle: "",
     editingFinalTitle: false,
     editingTurnId: null,
+    menuReturnScreen: null,
     orderSelectedIndex: null,
     screen: "game",
   });
@@ -1617,6 +1602,8 @@ function endGameManually() {
     gameOver: true,
     gameEndReason: "manual",
     gameEndedAt: new Date().toISOString(),
+    editingTurnId: null,
+    menuReturnScreen: null,
     screen: "results",
   });
 }

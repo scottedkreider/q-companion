@@ -168,6 +168,12 @@ test("cabin is the default theme and explicit theme options are preserved", () =
   assert.equal(QC.createInitialState({ themeMode: "default" }).themeMode, "default");
 });
 
+test("old haptics preference is ignored during hydration", () => {
+  const state = QC.hydrateState({ hapticsEnabled: true }, QC.createInitialState());
+
+  assert.equal(Object.hasOwn(state, "hapticsEnabled"), false);
+});
+
 test("scoreboard rounds include open row only for active games", () => {
   let state = makeStartedState(2);
   state = QC.submitTurn({ ...state, inputValue: "4" }, "2026-05-03T20:01:00.000Z");

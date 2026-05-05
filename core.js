@@ -31,23 +31,23 @@
       deleteHistoryArmedId: null,
       editingTurnId: null,
       returnScreen: "start",
+      menuReturnScreen: null,
       layoutMode: options.layoutMode || "default",
       themeMode: options.themeMode || "cabin",
       saveMode: options.saveMode || "sessionless",
-      hapticsEnabled: options.hapticsEnabled !== false,
       orderSelectedIndex: null,
     };
   }
 
   function hydrateState(savedState, fallbackState) {
     if (!savedState || typeof savedState !== "object") return null;
+    const { hapticsEnabled: _hapticsEnabled, ...restSavedState } = savedState;
     return {
       ...fallbackState,
-      ...savedState,
+      ...restSavedState,
       players: Array.isArray(savedState.players) ? savedState.players : [],
       turnHistory: Array.isArray(savedState.turnHistory) ? savedState.turnHistory.map(ensureTurnId) : [],
       undoHistory: Array.isArray(savedState.undoHistory) ? savedState.undoHistory.slice(-5) : [],
-      hapticsEnabled: savedState.hapticsEnabled !== false,
     };
   }
 

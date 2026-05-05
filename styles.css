@@ -458,8 +458,7 @@ input:focus-visible {
 
 .save-mode,
 .layout-menu,
-.theme-menu,
-.haptics-toggle {
+.theme-menu {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -468,26 +467,10 @@ input:focus-visible {
 
 .save-mode label,
 .layout-menu label,
-.theme-menu label,
-.haptics-toggle {
+.theme-menu label {
   color: var(--settings-label);
   font-size: 0.9rem;
   font-weight: 750;
-}
-
-.haptics-toggle {
-  min-height: 42px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-strong);
-  cursor: pointer;
-}
-
-.haptics-toggle input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
 }
 
 .save-mode select,
@@ -719,8 +702,7 @@ input:focus-visible {
 
 [data-theme="ti95"] .save-mode,
 [data-theme="ti95"] .layout-menu,
-[data-theme="ti95"] .theme-menu,
-[data-theme="ti95"] .haptics-toggle {
+[data-theme="ti95"] .theme-menu {
   min-height: 48px;
   padding: 0 8px;
   border: 1px solid;
@@ -742,11 +724,6 @@ input:focus-visible {
     linear-gradient(180deg, #f1f1f1, #d2d2d2);
   color: #111111;
   box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.18);
-}
-
-[data-theme="ti95"] .haptics-toggle input {
-  accent-color: #1f4f46;
-  filter: drop-shadow(1px 1px 0 rgba(255, 255, 255, 0.7));
 }
 
 .toggle-active {
@@ -1255,8 +1232,7 @@ input:focus-visible {
 }
 
 .table-score {
-  position: static;
-  flex: 0 0 auto;
+  position: absolute;
   min-width: 28px;
   padding: 2px 8px 3px;
   border-radius: 999px;
@@ -1265,7 +1241,7 @@ input:focus-visible {
   font-weight: 900;
   line-height: 1.1;
   text-align: center;
-  transform: none;
+  transform: translate(-50%, -50%);
 }
 
 .table-score.active {
@@ -2059,6 +2035,9 @@ input:focus-visible {
 }
 
 .score-paper-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   background: var(--score-header-bg);
   color: var(--muted);
   font-size: 0.82rem;
@@ -2099,22 +2078,22 @@ input:focus-visible {
   font-weight: 900;
 }
 
-.score-paper-table .open-round th,
-.score-paper-table .open-round td {
-  background-color: var(--score-open-bg);
+.score-paper-table .active-score-cell {
+  background-color: var(--primary);
+  color: #fffaf1;
+  box-shadow: inset 0 0 0 2px rgba(255, 250, 241, 0.36);
 }
 
-.score-paper-table .active-player {
-  background-color: var(--primary);
+.score-paper-table .active-score-cell.score-open {
   color: #fffaf1;
 }
 
-[data-theme="royale"] .score-paper-table .active-player {
+[data-theme="royale"] .score-paper-table .active-score-cell {
   color: #fff7d8;
   text-shadow: 1px 1px 0 rgba(36, 31, 28, 0.24);
 }
 
-[data-theme="toyShop"] .score-paper-table .active-player {
+[data-theme="toyShop"] .score-paper-table .active-score-cell {
   color: #fff9ea;
   text-shadow: 1px 1px 0 rgba(36, 32, 52, 0.22);
 }
@@ -2124,14 +2103,9 @@ input:focus-visible {
   color: #ffffff;
 }
 
-[data-theme="ti95"] .score-paper-table .active-player {
+[data-theme="ti95"] .score-paper-table .active-score-cell {
   background: #d6aa2f;
   color: #111111;
-}
-
-[data-theme="ti95"] .score-paper-table .active-player .current-pill {
-  color: #111111;
-  font-weight: 900;
 }
 
 [data-theme="ti95"] .score-paper-table .score-total-row th {
@@ -2578,8 +2552,7 @@ input:focus-visible {
   }
 
   .game-settings .layout-menu,
-  .game-settings .theme-menu,
-  .game-settings .haptics-toggle {
+  .game-settings .theme-menu {
     flex: 1 1 150px;
     justify-content: space-between;
   }
