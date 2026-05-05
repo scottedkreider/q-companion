@@ -55,7 +55,7 @@ test("line bonus records base, bonus, and total", () => {
 
 test("last tile bonus ends the game and assigns winner treatment", () => {
   const state = QC.submitTurn(
-    { ...makeStartedState(2), inputValue: "8", lastTileBonusApplied: true },
+    { ...makeStartedState(2), inputValue: "8", lastTileBonusApplied: true, finalTurnArmed: true, startGameArmed: true },
     "2026-05-03T20:01:00.000Z"
   );
 
@@ -64,6 +64,8 @@ test("last tile bonus ends the game and assigns winner treatment", () => {
   assert.equal(state.screen, "results");
   assert.equal(state.turnHistory[0].lastTileBonus, 6);
   assert.equal(state.players[0].score, 14);
+  assert.equal(state.finalTurnArmed, false);
+  assert.equal(state.startGameArmed, false);
   assert.equal(QC.doesAssignWinner(state), true);
 });
 
@@ -89,13 +91,14 @@ test("undo after last tile reopens the game without an edited marker", () => {
     "2026-05-03T20:01:00.000Z"
   );
 
-  state = QC.undoLastTurn(state);
+  state = QC.undoLastTurn({ ...state, finalTurnArmed: true });
 
   assert.equal(state.gameOver, false);
   assert.equal(state.gameEndReason, null);
   assert.equal(state.screen, "game");
   assert.equal(state.players[0].score, 0);
   assert.equal(state.turnHistory.length, 0);
+  assert.equal(state.finalTurnArmed, false);
 });
 
 test("undo history is bounded to the five most recent turns", () => {
@@ -172,6 +175,28 @@ test("old haptics preference is ignored during hydration", () => {
   const state = QC.hydrateState({ hapticsEnabled: true }, QC.createInitialState());
 
   assert.equal(Object.hasOwn(state, "hapticsEnabled"), false);
+});
+
+test("active game detection only treats unfinished started games as in progress", () => {
+  assert.equal(QC.isGameInProgress(QC.createInitialState()), false);
+  assert.equal(QC.isGameInProgress(makeStartedState(2)), true);
+  assert.equal(QC.isGameInProgress({ ...makeStartedState(2), gameOver: true }), false);
+});
+
+test("game summary reports turn count, rounds, spread, and high turn", () => {
+  let state = makeStartedState(3);
+  state = QC.submitTurn({ ...state, inputValue: "4" }, "2026-05-03T20:01:00.000Z");
+  state = QC.submitTurn({ ...state, inputValue: "9" }, "2026-05-03T20:02:00.000Z");
+  state = QC.submitTurn({ ...state, inputValue: "5" }, "2026-05-03T20:03:00.000Z");
+  state = QC.submitTurn({ ...state, inputValue: "6", lineBonusApplied: true }, "2026-05-03T20:04:00.000Z");
+
+  assert.deepEqual(QC.getGameSummary(state), {
+    turns: 4,
+    rounds: 2,
+    spread: 7,
+    highTurnTotal: 12,
+    highTurnPlayerId: "p1",
+  });
 });
 
 test("scoreboard rounds include open row only for active games", () => {

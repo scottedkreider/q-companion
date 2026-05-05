@@ -98,3 +98,4 @@ Enter the total base score for the current turn, then use bonus buttons if neede
 - Shareable realtime game links
 - Backend storage adapter
 - Lightweight installable PWA support
+- Different game flavors using the same scorekeeping shell with tuned setup, labels, scoring shortcuts, and end-game flows

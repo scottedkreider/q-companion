@@ -214,6 +214,25 @@
     return gameState.gameEndReason === "lastTile" || (gameState.gameEndReason === null && gameState.turnHistory.some((turn) => turn.isLastTile));
   }
 
+  function isGameInProgress(gameState) {
+    return Boolean(gameState?.gameStartedAt && !gameState.gameOver);
+  }
+
+  function getGameSummary(gameState) {
+    const rankings = getRankings(gameState.players || []);
+    const topScore = rankings[0]?.score ?? 0;
+    const secondScore = rankings[1]?.score ?? topScore;
+    const turnHistory = Array.isArray(gameState.turnHistory) ? gameState.turnHistory : [];
+    const highTurn = turnHistory.reduce((best, turn) => (turn.turnTotal > (best?.turnTotal || 0) ? turn : best), null);
+    return {
+      turns: turnHistory.length,
+      rounds: Math.max(...turnHistory.map((turn) => turn.roundNumber), 0),
+      spread: Math.max(0, topScore - secondScore),
+      highTurnTotal: highTurn?.turnTotal || 0,
+      highTurnPlayerId: highTurn?.playerId || null,
+    };
+  }
+
   function getScoreboardRounds(gameState, includeOpenRow = true) {
     const completedRounds = gameState.turnHistory.map((turn) => turn.roundNumber);
     const currentRound = gameState.gameOver || !includeOpenRow ? 0 : getRoundNumber(gameState.turnNumber, gameState.playerCount);
@@ -291,6 +310,8 @@
     editTurnScore,
     getRankings,
     doesAssignWinner,
+    isGameInProgress,
+    getGameSummary,
     getScoreboardRounds,
     getPreviousRunningTotal,
     makeGameSnapshot,

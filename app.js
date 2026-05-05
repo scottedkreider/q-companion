@@ -408,7 +408,7 @@ function startGameFromStartScreen() {
 }
 
 function hasGameInProgress() {
-  return Boolean(state.gameStartedAt && !state.gameOver);
+  return QC.isGameInProgress(state);
 }
 
 function getMenuReturnScreen() {
@@ -827,7 +827,7 @@ function renderResults(app) {
 
       <div id="final-scores" class="panel stack">
         <h2 class="screen-title">Final Scores</h2>
-        ${renderGameSummary(rankings)}
+        ${renderGameSummary()}
         ${!assignsWinner ? '<p class="muted">Game ended manually. No winner assigned.</p>' : ""}
         ${state.saveMode === "saveAll" ? '<p class="muted">Save All Games is on. This game will be kept in Game History.</p>' : ""}
         ${renderFinalScoresGrid(rankings, assignsWinner)}
@@ -855,17 +855,14 @@ function renderResults(app) {
   setTimeout(scrollScoreSheetsToBottom, 0);
 }
 
-function renderGameSummary(rankings) {
-  const rounds = Math.max(...state.turnHistory.map((turn) => turn.roundNumber), 0);
-  const topScore = rankings[0]?.score ?? 0;
-  const secondScore = rankings[1]?.score ?? topScore;
-  const highTurn = state.turnHistory.reduce((best, turn) => (turn.turnTotal > (best?.turnTotal || 0) ? turn : best), null);
+function renderGameSummary() {
+  const summary = QC.getGameSummary(state);
   return `
     <div class="detail-meta game-summary">
-      <span>${state.turnHistory.length} turns</span>
-      <span>${rounds} rounds</span>
-      <span>Spread ${Math.max(0, topScore - secondScore)}</span>
-      ${highTurn ? `<span>High turn ${highTurn.turnTotal}</span>` : ""}
+      <span>${summary.turns} turns</span>
+      <span>${summary.rounds} rounds</span>
+      <span>Spread ${summary.spread}</span>
+      ${summary.highTurnTotal ? `<span>High turn ${summary.highTurnTotal}</span>` : ""}
     </div>
   `;
 }
@@ -1725,13 +1722,6 @@ function doesAssignWinner() {
   return QC.doesAssignWinner(state);
 }
 
-function formatBonuses(turn) {
-  const bonuses = [];
-  if (turn.lineBonus) bonuses.push("+6 line");
-  if (turn.lastTileBonus) bonuses.push("+6 last");
-  return bonuses.length ? bonuses.join(", ") : `base ${turn.baseScore}`;
-}
-
 function formatDisplayDate(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return "Saved game";
@@ -1768,10 +1758,6 @@ function getDefaultTitleWinner(gameState) {
 function getPlayerInitial(name) {
   const trimmed = String(name || "").trim();
   return (trimmed[0] || "?").toUpperCase();
-}
-
-function scrollToFinalScores() {
-  document.getElementById("final-scores")?.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
 function scrollLiveScoreboardToBottom() {
